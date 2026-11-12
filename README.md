@@ -7,13 +7,12 @@
 Customers already run errands through personal agents like Claude, ChatGPT, OpenClaw, Muse and
 GrokBot. Agentic Bank lets those agents do what used to need the website or app: explain a charge,
 send money, dispute a purchase. The agent acts as the customer, can read and propose, never moves
-money on its own, and can be cut off in one click. Inside the bank, an LLM helps review card
+money on its own, and can be cut off with one revoke command in the bank app. Inside the bank, an LLM helps review card
 disputes, but code makes every decision and a person makes every "no".
 
 It is a fictional US bank on synthetic data, built on AWS with Terraform and Python: an AgentCore
 Gateway with Cedar policy, Cognito with TOTP, Lambda tools, DynamoDB with an envelope-encrypted
-PII vault, and a Step Functions dispute workflow with a human in the loop. Each control has a proof
-script that ran against the deployed stack (us-east-1, 2026-11-11). The agent tested so far is
+PII vault, and a Step Functions dispute workflow with a human in the loop. Ten proof scripts in `proofs/` ran against the deployed stack (us-east-1, 2026-11-11); some controls are checked only by config or unit tests. The agent tested so far is
 Claude, through a custom connector.
 
 ![Architecture: the customer's AI agent calls an AgentCore Gateway (JWT check, Cedar policy), then
@@ -45,8 +44,8 @@ Claude: -> bank___propose_transfer {"payee_id": "pay_alex_landlord", "amount_cen
 | --- | --- |
 | "What's this $12.99 charge?" | Card-network order data (mock): item, device, 3-D Secure. Merchant text is labeled untrusted |
 | "Send $500 to my landlord." | The agent writes a `PENDING` proposal; money moves only after the customer approves in the app with a fresh password + TOTP |
-| "I never got this order, dispute it." | PII is tokenized, a model scores the facts, code refunds small clear cases or sends the case to a person |
-| "Cut off my agent." | The customer revokes it in the bank app; its tokens fail on the next call |
+| "I never got this order, dispute it." | detected PII is tokenized, a model scores the facts, code refunds small clear cases or sends the case to a person |
+| "Cut off my agent." | The customer revokes it in the bank app; tokens from earlier sign-ins fail on the next call |
 
 ## How it works
 
@@ -66,10 +65,10 @@ Claude: -> bank___propose_transfer {"payee_id": "pay_alex_landlord", "amount_cen
 ## Which control stops which risk
 
 ![One tool call, five checks: a hijacked agent sends propose_transfer for $5,000 naming another
-customer. 1, the gateway JWT authorizer stops missing, forged, expired or wrong-client tokens with
+customer. 1, the gateway JWT authorizer stops missing or expired tokens with
 401. 2, the request interceptor overwrites the customer with the token's subject and refuses revoked
 agents. 3, Cedar policy denies a missing scope or an amount over $1,000. 4, the per-call IAM session
-policy makes AWS deny reads of another customer's rows. 5, the agent can only write a PENDING
+policy makes AWS deny reads of another customer's rows. 5, the agent's only tool that touches a transfer writes a PENDING
 proposal; money moves only when the customer approves in the bank app with a fresh password + TOTP,
 in one DynamoDB transaction.](docs/diagrams/tool-call-controls.png)
 

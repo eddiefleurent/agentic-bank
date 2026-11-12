@@ -115,7 +115,7 @@ See [deploy.md](deploy.md) for setup and the full list of proofs.
 
 Money and disputes add to that path:
 
-- **Transfer** ([diagram](diagrams/03-transfer.png)): the agent can only write a `PENDING`
+- **Transfer** ([diagram](diagrams/03-transfer.png)): the agent's only tool that touches a transfer can only write a `PENDING`
   proposal. The customer approves in the bank app, a separate HTTP API that accepts only the app's
   tokens and a sign-in at most 5 minutes old. The approval sends the hash of what the customer saw,
   and one DynamoDB transaction executes the transfer at most once.
