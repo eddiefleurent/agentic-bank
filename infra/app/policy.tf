@@ -182,3 +182,26 @@ resource "aws_bedrockagentcore_policy" "answer_dispute" {
   }
   depends_on = [aws_bedrockagentcore_gateway_target.bank, aws_bedrockagentcore_policy.dispute_transaction]
 }
+
+# knowledge.tf: reading published fees and policies is a read. The audience (customer documents
+# only) is not decided here but in the tool, from the same token: Cedar sees the question, not the
+# documents.
+resource "aws_bedrockagentcore_policy" "ask_policy" {
+  count            = local.second_pass && local.kb_on ? 1 : 0
+  name             = "read_ask_policy"
+  policy_engine_id = aws_bedrockagentcore_policy_engine.bank.policy_engine_id
+  definition {
+    cedar {
+      statement = <<-CEDAR
+        permit(
+          principal is AgentCore::OAuthUser,
+          action == AgentCore::Action::"bank___ask_policy",
+          resource == ${local.gateway_resource}
+        ) when {
+          ${indent(2, trimspace(local.scope_condition.read))}
+        };
+      CEDAR
+    }
+  }
+  depends_on = [aws_bedrockagentcore_gateway_target.bank, aws_bedrockagentcore_policy.answer_dispute]
+}

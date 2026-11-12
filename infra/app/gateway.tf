@@ -26,8 +26,9 @@ locals {
     }
     tools = {
       handler = "agentic_bank.tools.handler.handler"
-      # Known strings, not resource attributes, so the values are known at plan time.
-      env = {
+      # Known strings, not resource attributes, so the values are known at plan time. The
+      # knowledge_env merged in (knowledge.tf) is empty unless var.knowledge_base is true.
+      env = merge({
         TABLE_ARN                 = local.table_arn
         DATA_READER_ROLE_ARN      = "arn:aws:iam::${local.account}:role/agentic-bank-app-data-reader"
         PROPOSER_ROLE_ARN         = "arn:aws:iam::${local.account}:role/agentic-bank-app-proposer"
@@ -35,7 +36,7 @@ locals {
         DISPUTE_STATE_MACHINE_ARN = local.dispute_machine_arn
         VAULT_TABLE               = "agentic-bank-vault"
         PII_KEY_ID                = data.aws_kms_key.pii.arn
-      }
+      }, local.knowledge_env)
       timeout = 30 # Comprehend, KMS and two role sessions on a dispute
     }
     approvals = {
@@ -57,12 +58,13 @@ locals {
     }
     review = {
       handler = "agentic_bank.disputes.worker.review_handler"
-      env = {
+      env = merge({
         MODEL_ID          = local.review_model
         GUARDRAIL_ID      = aws_bedrock_guardrail.grounding.guardrail_id
         GUARDRAIL_VERSION = aws_bedrock_guardrail_version.grounding.version
-      }
-      timeout = 60 # up to two model calls plus the grounding check
+      }, local.review_investigator_env) # empty unless investigator_enabled (investigator.tf)
+      # Classifier: up to two model calls plus the grounding check. Investigator: its 90 s budget.
+      timeout = var.investigator_enabled ? 140 : 60
     }
     analyst = {
       handler = "agentic_bank.disputes.analyst.handler"
@@ -82,9 +84,9 @@ locals {
   lambda_grants = {
     interceptor = [{ Effect = "Allow", Action = "dynamodb:GetItem", Resource = local.revocations_arn }]
     approvals   = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = local.lambdas.approvals.env.APPROVER_ROLE_ARN }]
-    tools       = concat(local.tools_grants, local.tools_dispute_grants)
+    tools       = concat(local.tools_grants, local.tools_dispute_grants, local.knowledge_grants)
     dispute     = local.dispute_grants
-    review      = local.review_grants
+    review      = concat(local.review_grants, local.review_investigator_grants)
     analyst     = local.analyst_grants
   }
 }
@@ -410,6 +412,23 @@ resource "aws_bedrockagentcore_gateway_target" "bank" {
                 type        = "string"
                 description = "The customer's own words, up to 1000 characters"
                 required    = true
+              }
+            }
+          }
+          # knowledge.tf: the policy assistant. No audience argument: the customer's token decides.
+          dynamic "inline_payload" {
+            for_each = local.kb_on ? [1] : []
+            content {
+              name        = "ask_policy"
+              description = "Answer a question about Agentic Bank fees and policies (overdraft, wires and ACH cutoffs, card replacement, foreign fees, dispute rights) from the bank's published documents, with citations. Says it does not know when the documents do not answer."
+              input_schema {
+                type = "object"
+                property {
+                  name        = "question"
+                  type        = "string"
+                  description = "The customer's question in plain words, up to 500 characters"
+                  required    = true
+                }
               }
             }
           }

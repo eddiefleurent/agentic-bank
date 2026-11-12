@@ -1,0 +1,22 @@
+[
+  {"id": "q01", "question": "How much does it cost to send a wire to another US bank?", "doc_id": "fee-schedule", "section": "Wire transfer fees"},
+  {"id": "q02", "question": "What's the overdraft fee and is there a daily limit on them?", "doc_id": "overdraft-policy", "section": "Overdraft fee"},
+  {"id": "q03", "question": "I was overdrawn by $30 last night. Will I be charged?", "doc_id": "overdraft-policy", "section": "Overdraft fee"},
+  {"id": "q04", "question": "How long do I have to fix a negative balance before the overdraft fee sticks?", "doc_id": "overdraft-policy", "section": "Grace period"},
+  {"id": "q05", "question": "Why was my card declined at the ATM instead of overdrawing my account?", "doc_id": "overdraft-policy", "section": "ATM and everyday debit card transactions"},
+  {"id": "q06", "question": "How many days do I have to report a wrong debit card charge on my statement?", "doc_id": "reg-e-dispute-rights", "section": "How to tell us about an error"},
+  {"id": "q07", "question": "How long will the bank take to investigate my dispute, and do I get my money back while I wait?", "doc_id": "reg-e-dispute-rights", "section": "How long we take to investigate"},
+  {"id": "q08", "question": "Someone stole my card and used it. How much could I be on the hook for?", "doc_id": "reg-e-dispute-rights", "section": "Your liability for unauthorized transfers"},
+  {"id": "q09", "question": "What time do I need to approve a domestic wire for it to go out today?", "doc_id": "transfer-cutoffs", "section": "Domestic wire cutoff"},
+  {"id": "q10", "question": "Is there a same-day ACH option and what's the cutoff?", "doc_id": "transfer-cutoffs", "section": "ACH transfer cutoffs"},
+  {"id": "q11", "question": "My agent proposed a transfer at noon but I approved it at 8pm. When will it arrive?", "doc_id": "transfer-cutoffs", "section": "ACH transfer cutoffs"},
+  {"id": "q12", "question": "I lost my debit card. How fast can I get a new one and what does it cost?", "doc_id": "card-replacement", "section": "Replacement timing and cost"},
+  {"id": "q13", "question": "What fee do I pay when I use my debit card in Paris?", "doc_id": "foreign-transactions", "section": "Foreign transaction fee"},
+  {"id": "q14", "question": "A shop in Mexico offered to charge me in dollars. Should I accept and do I still pay the foreign fee?", "doc_id": "foreign-transactions", "section": "Paying in US dollars abroad"},
+  {"id": "q15", "question": "When can I use the money from a check I deposited with my phone?", "doc_id": "funds-availability", "section": "Check deposits"},
+  {"id": "q16", "question": "How many withdrawals can I make from savings each month before a fee?", "doc_id": "savings-terms", "section": "Withdrawals"},
+  {"id": "q17", "question": "Can my AI assistant send money without asking me?", "doc_id": "agent-access-terms", "section": "What your agent cannot do"},
+  {"id": "r01", "question": "How many overdraft fees are staff allowed to waive for me each year without a supervisor?", "refuse": "internal", "doc_id": "fee-waiver-guidelines", "section": "Overdraft fee waivers"},
+  {"id": "r02", "question": "What dollar amount makes a dispute get escalated to the fraud team?", "refuse": "internal", "doc_id": "fraud-escalation", "section": "When to escalate to the fraud team"},
+  {"id": "r03", "question": "What is the interest rate on a 30-year fixed mortgage?", "refuse": "absent"}
+]

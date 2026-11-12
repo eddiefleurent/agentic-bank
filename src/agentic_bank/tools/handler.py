@@ -1,4 +1,4 @@
-"""Bank tools Lambda: reads, proposing a transfer (never executing one), and disputes.
+"""Bank tools Lambda: reads, proposing a transfer (never executing one), disputes, policy answers.
 
 The gateway passes the tool arguments as the event (including `customer`, set by the interceptor)
 and the tool name in the client context."""
@@ -10,6 +10,7 @@ from typing import Any
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from agentic_bank.knowledge import service as knowledge
 from agentic_bank.shared.data import format_cents, scoped_session, table_for
 from agentic_bank.shared.pii import Tokenizer
 from agentic_bank.shared.transfers import MAX_CENTS, now_iso, transfer_hash
@@ -169,6 +170,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if not isinstance(customer, str) or not customer:
         return {"error": "invalid input: customer"}
     tool = context.client_context.custom["bedrockAgentCoreToolName"].rpartition("___")[2]
+    if tool == "ask_policy":  # bank documents, not customer rows: no per-customer role session
+        return knowledge.ask_policy_tool(event)
     if tool == "propose_transfer":
         proposal = parse_proposal(event)
         if "error" in proposal:

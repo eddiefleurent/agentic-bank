@@ -1,0 +1,62 @@
+{
+  "fee-schedule": {
+    "title": "Consumer Fee Schedule",
+    "audience": "customer",
+    "effective_date": "2026-01-01"
+  },
+  "overdraft-policy": {
+    "title": "Overdraft Policy",
+    "audience": "customer",
+    "effective_date": "2026-03-01"
+  },
+  "reg-e-dispute-rights": {
+    "title": "Your Rights When an Electronic Transfer Goes Wrong (Regulation E Summary)",
+    "audience": "customer",
+    "effective_date": "2025-07-01"
+  },
+  "transfer-cutoffs": {
+    "title": "Wire and ACH Cutoff Times",
+    "audience": "customer",
+    "effective_date": "2026-01-01"
+  },
+  "card-replacement": {
+    "title": "Lost, Stolen or Damaged Debit Cards",
+    "audience": "customer",
+    "effective_date": "2025-10-01"
+  },
+  "foreign-transactions": {
+    "title": "Foreign Transaction and International ATM Fees",
+    "audience": "customer",
+    "effective_date": "2026-01-01"
+  },
+  "funds-availability": {
+    "title": "Funds Availability Policy",
+    "audience": "customer",
+    "effective_date": "2025-07-01"
+  },
+  "savings-terms": {
+    "title": "Everyday Savings Account Terms",
+    "audience": "customer",
+    "effective_date": "2026-02-01"
+  },
+  "agent-access-terms": {
+    "title": "Using a Personal AI Agent With Your Account",
+    "audience": "customer",
+    "effective_date": "2026-11-01"
+  },
+  "fee-waiver-guidelines": {
+    "title": "Fee Waiver Guidelines for Staff",
+    "audience": "internal",
+    "effective_date": "2026-03-01"
+  },
+  "dispute-procedures": {
+    "title": "Card Dispute Investigation Procedures",
+    "audience": "internal",
+    "effective_date": "2026-11-01"
+  },
+  "fraud-escalation": {
+    "title": "Fraud Escalation Thresholds",
+    "audience": "internal",
+    "effective_date": "2026-06-01"
+  }
+}
