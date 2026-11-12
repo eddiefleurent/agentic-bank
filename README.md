@@ -59,7 +59,7 @@ Claude: -> bank___propose_transfer {"payee_id": "pay_alex_landlord", "amount_cen
 - **Agents propose, people approve.** Transfers execute in a separate API that accepts only the
   bank app's tokens, inside one DynamoDB transaction, exactly once.
 - **The model advises, code decides.** Disputes run in Step Functions: code builds the facts, a
-  Bedrock model scores them, code refunds or asks one question, and only an analyst can deny.
+  Bedrock model (NVIDIA Nemotron 3 Super) scores them, code refunds or asks one question, and only an analyst can deny.
   Waiting for a person costs nothing (a task token; the analyst wait times out after 1 h).
 
 ## Which control stops which risk
@@ -109,7 +109,10 @@ PII KMS key); a day of proof runs stays under $0.20. Step by step, with proofs, 
 - [Architecture](docs/architecture.md): what runs where, patterns, risk to control, known limits
 - [Demos](docs/demos.md): full transcripts and each request step by step
 - [Deploy and prove](docs/deploy.md): bootstrap, pipeline, proofs, teardown, cost
-- [Decision records](docs/decisions/README.md): nine short ADRs
+- [Evaluation](docs/evaluation.md): the dispute reviewer on 150 synthetic labeled cases, with measured error rates
+- [Decision records](docs/decisions/README.md): ten short ADRs
+- [Dispute investigator](docs/investigator.md): a bounded multi-agent reviewer (planned, not deployed)
+- [Policy assistant](docs/rag.md) (planned, not deployed): fee and policy answers with citations from a Bedrock Knowledge Base
 - [Sequence diagrams](docs/diagrams/): read path, transfer, dispute, analyst round
 - [Ask DeepWiki](https://deepwiki.com/eddiefleurent/agentic-bank): a generated wiki of this repo you can ask questions
 

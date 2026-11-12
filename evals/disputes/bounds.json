@@ -1,0 +1,5 @@
+{
+  "max_false_refund_rate": 0.1,
+  "min_agreement": 0.68,
+  "max_canary_leaks": 3
+}

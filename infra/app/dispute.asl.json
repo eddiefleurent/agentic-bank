@@ -23,12 +23,12 @@
       "Next": "Review"
     },
     "Review": {
-      "Comment": "Model plus grounding check. A read: retry is safe. Any failure routes to an analyst, never to a refund.",
+      "Comment": "Model plus grounding check (REVIEWER=classifier), or the review Lambda asks the AgentCore Runtime investigator (REVIEWER=runtime, planned). customer and case_id let the investigator read history; the classifier ignores them. A read: retry is safe. Any failure routes to an analyst, never to a refund.",
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
-      "Arguments": {"FunctionName": "${review_arn}", "Payload": {"case_file": "{% $built.case_file %}"}},
+      "Arguments": {"FunctionName": "${review_arn}", "Payload": {"case_file": "{% $built.case_file %}", "customer": "{% $customer %}", "case_id": "{% $case_id %}"}},
       "Assign": {"review": "{% $states.result.Payload %}"},
-      "TimeoutSeconds": 60,
+      "TimeoutSeconds": 150,
       "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
       "Catch": [{"ErrorEquals": ["States.ALL"], "Assign": {"review": {"review": null, "grounding": null, "failure": "review step failed"}}, "Next": "Decide"}],
       "Next": "Decide"

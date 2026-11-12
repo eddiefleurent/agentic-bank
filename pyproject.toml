@@ -16,14 +16,20 @@ packages = ["src/agentic_bank"]
 [dependency-groups]
 dev = [
     "boto3>=1.44.0",
+    "opentelemetry-sdk>=1.45.2",
     "pytest",
     "ruff",
     "ty",
 ]
+investigator = [
+    "bedrock-agentcore>=1.26.0",
+    "pydantic>=2",
+    "strands-agents>=1.64.0",
+]
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "."]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -34,6 +40,11 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # the evals package lives outside src so it stays out of the Lambda zip
 
 [tool.ty.environment]
 extra-paths = ["scripts", "proofs"]
+
+[tool.uv]
+# The investigator (Strands, AgentCore Runtime) is a separate deployable; the Lambdas zip only src.
+default-groups = ["dev", "investigator"]

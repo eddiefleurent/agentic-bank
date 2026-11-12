@@ -2,9 +2,10 @@ from agentic_bank.disputes.decide import decide
 from agentic_bank.disputes.review import ReviewOutcome
 
 
-def review(**scores: int) -> ReviewOutcome:
+def review(flags=(), **scores: int) -> ReviewOutcome:
     criteria = [{"id": k, "score": v, "rationale": "r", "fields": []} for k, v in scores.items()]
-    return ReviewOutcome(review={"criteria": criteria, "summary": "s"}, grounding={"passed": True})
+    body = {"criteria": criteria, "flags": list(flags), "summary": "s"}
+    return ReviewOutcome(review=body, grounding={"passed": True})
 
 
 def run(model, code=None, reason="not_received", amount=3400, order=True, round_no=0):
@@ -63,3 +64,28 @@ def test_model_can_never_produce_a_denial():
             for amount in (100, 9000):
                 out = run(review(C1=c1, C4=c4), {"C1": c1}, amount=amount)
                 assert out.outcome in {"AUTO_REFUND", "ASK", "ANALYST"}
+
+
+def test_rule9_a_flag_takes_away_the_auto_refund():
+    out = run(review(["concedes_charge"], C1=1, C4=1))
+    assert (out.rule, out.outcome) == (9, "ANALYST")
+
+
+def test_a_flag_can_only_make_the_outcome_more_cautious():
+    """The flag is a model judgment: it must never turn ASK or ANALYST into a refund, and it may
+    change nothing but AUTO_REFUND."""
+    for c1 in (-1, 0, 1):
+        for c4 in (-1, 0, 1):
+            for amount in (100, 9000):
+                for round_no in (0, 1):
+                    plain = run(review(C1=c1, C4=c4), {"C1": c1}, amount=amount, round_no=round_no)
+                    for flags in (["concedes_charge"], ["instructs_reviewer"]):
+                        flagged = run(
+                            review(flags, C1=c1, C4=c4),
+                            {"C1": c1},
+                            amount=amount,
+                            round_no=round_no,
+                        )
+                        assert flagged.outcome != "AUTO_REFUND"
+                        if plain.outcome != "AUTO_REFUND":
+                            assert flagged == plain

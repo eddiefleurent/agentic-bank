@@ -13,7 +13,7 @@ terraform fmt -check -recursive infra
 ## Deploy
 
 You need an AWS account you control, admin credentials for the one-time bootstrap, and your own
-GitHub repository with Actions enabled. The account must be able to invoke the Bedrock model
+GitHub repository with Actions enabled. The account must be able to invoke the Bedrock models
 `openai.gpt-oss-120b-1:0` in `us-east-1`. The stack uses fixed resource names and `us-east-1`: one
 stack per account, not a multi-environment template. Estimate the [cost](#cost) first.
 
@@ -92,6 +92,6 @@ Idle, the stack costs about $1/month: the PII KMS key ($1.00/month). Everything 
 AgentCore gateway and policy calls, Lambda, DynamoDB on demand (tables and the GSI), Step Functions
 ($0.025 per 1,000 transitions; waiting for a human is free), Cognito Essentials (free under 10,000
 monthly users), SSM standard parameters (free), CloudWatch Logs (30-day retention, cents), the state
-bucket (cents). One dispute costs about $0.005: Comprehend PII ~$0.0003, gpt-oss-120b review
+bucket (cents). One dispute costs about $0.005: Comprehend PII ~$0.0003, Nemotron review
 (~$0.15/$0.60 per million tokens, 1-2 calls) ~$0.003, grounding check ~$0.001, ~15 transitions $0.0004,
 KMS $0.03 per 10,000 calls. A day of proof runs (about 20 disputes) stays under $0.20.

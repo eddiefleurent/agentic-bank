@@ -15,7 +15,7 @@ from typing import Any
 
 import boto3
 
-from agentic_bank.disputes import casefile, decide, questions, review, settle
+from agentic_bank.disputes import casefile, decide, questions, review, reviewers, settle, tracing
 from agentic_bank.network.order_insight import FixtureOrderInsight
 from agentic_bank.shared.data import scoped_session
 from agentic_bank.shared.ddb import deser, get
@@ -112,6 +112,7 @@ def decide_case(
         review=review.ReviewOutcome(**outcome),
         round_no=built["round"],
     )
+    tracing.annotate({"dispute.decision.outcome": d.outcome, "dispute.decision.rule": d.rule})
     record = {"rule": d.rule, "outcome": d.outcome, "grounding": outcome.get("grounding")}
     _update(
         client,
@@ -231,7 +232,13 @@ def handler(event: dict[str, Any], _context: Any = None) -> Any:
 
 
 def review_handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:
-    outcome = review.run_review(
+    """The Review step. REVIEWER picks who judges (default: the one-call classifier)."""
+    reviewer = reviewers.select(
+        os.environ.get("REVIEWER", "classifier"),
+        customer=event.get("customer"),
+        case_id=event.get("case_id"),
+    )
+    outcome = reviewer(
         boto3.client("bedrock-runtime"),
         os.environ["MODEL_ID"],
         os.environ["GUARDRAIL_ID"],

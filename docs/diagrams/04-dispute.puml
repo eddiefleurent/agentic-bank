@@ -11,6 +11,9 @@
 '   7   Settle: one TransactWriteItems (case -> REFUNDED, balance +, refund row once, REFUNDQ# slot).
 '       No free slot -> analyst queue. A replay returns the stored result.
 '   8   The agent polls get_dispute: "Refunded 34.00".
+'   Planned, not deployed (dashed gray): with REVIEWER=runtime the review Lambda asks the Strands
+'   investigator on AgentCore Runtime instead (docs/investigator.md, decision 0010). Same output
+'   checks; Decide is unchanged.
 hide footbox
 skinparam ArrowColor #545B64
 skinparam SequenceLifeLineBorderColor #C9CED6
@@ -22,12 +25,16 @@ participant "Step Functions" as S
 participant "Worker" as W
 participant "Review (model)" as R
 participant "DynamoDB" as D
+participant "Investigator\n(AgentCore Runtime)\nplanned" as I #EEEEEE
 
 A -> T : dispute_transaction
 T -> D : tokens; Put CASE#
 T -> S : StartExecution
 S -> W : Build (code facts)
 S -> R : Review + grounding
+autonumber stop
+R -[#999999]-> I : <color:#777777>planned: investigate</color>
+autonumber resume
 S -> W : Decide (rules)
 W -> D : Settle (one transaction)
 A -> T : get_dispute -> REFUNDED
