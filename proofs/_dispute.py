@@ -12,6 +12,8 @@ import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import boto3
@@ -66,6 +68,20 @@ def require_fresh(customer: str, txns: list[str]) -> None:
     used = [t for t in txns if case_row(customer, t)]
     if used:
         raise SystemExit(f"cases already exist for {used}: run proofs/_cleanup.py first")
+
+
+@contextmanager
+def self_cleaning(start: bool = True, end: bool = True) -> Iterator[None]:
+    """Reset the dispute fixtures before the proof and again after it, even if it fails."""
+    from _cleanup import main as cleanup  # _cleanup imports this module: import late
+
+    if start:
+        cleanup()
+    try:
+        yield
+    finally:
+        if end:
+            cleanup()
 
 
 def balance(customer: str, account: str = ACCOUNT) -> int:

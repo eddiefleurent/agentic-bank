@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "infra/app/**"
+      - "knowledge/**"
       - "src/**"
       - ".github/workflows/deploy.yml"
 
@@ -90,3 +91,24 @@ jobs:
           terraform apply -no-color tfplan > apply.txt 2>&1 || { grep -E 'Error' apply.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'; exit 1; }
           grep -E 'complete after|^Apply complete' apply.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'
           rm apply.txt
+      # Terraform cannot start an ingestion job. Documents changed => objects changed => this apply had
+      # changes, so re-index here. Skipped while the Knowledge Base is off (the output is null).
+      - name: Re-index the Knowledge Base
+        if: steps.plan.outputs.changes == 'true'
+        run: |
+          set -euo pipefail
+          kb=$(terraform output -json knowledge_base_id | jq -r '. // empty')
+          ds=$(terraform output -json knowledge_data_source_id | jq -r '. // empty')
+          [ -n "$kb" ] || { echo "No Knowledge Base: skipping ingestion"; exit 0; }
+          job=$(aws bedrock-agent start-ingestion-job --knowledge-base-id "$kb" --data-source-id "$ds" \
+            --query ingestionJob.ingestionJobId --output text)
+          for _ in $(seq 1 30); do
+            status=$(aws bedrock-agent get-ingestion-job --knowledge-base-id "$kb" --data-source-id "$ds" \
+              --ingestion-job-id "$job" --query ingestionJob.status --output text)
+            case "$status" in
+              COMPLETE) echo "Ingestion complete"; exit 0 ;;
+              FAILED|STOPPED) echo "Ingestion $status" >&2; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Ingestion still running after 5 minutes" >&2; exit 1

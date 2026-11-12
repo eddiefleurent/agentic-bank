@@ -89,12 +89,12 @@ See [deploy.md](deploy.md) for setup and the full list of proofs.
              -> 200
    Agent:    -> bank___get_dispute {"case_id": "dsp_t_alex_007"}  ->  {"status": "REFUNDED", "message": "Refunded 89.00 ..."}
    ```
-   Proofs (fixtures are one case per charge: reset with `proofs/_cleanup.py` between runs):
+   Proofs (fixtures are one case per charge: the proofs reset them themselves before and after; `proofs/_cleanup.py` is the manual reset):
    ```
    uv run python proofs/explain_charge.py             # explain_charge + hostile merchant text + 15-minute tokens
-   uv run python proofs/_cleanup.py && uv run python proofs/dispute_paths.py [--with-timeout]
+   uv run python proofs/dispute_paths.py --keep [--with-timeout]   # --keep: leave cases for analyst_pii
    uv run python proofs/analyst_pii.py                # right after dispute_paths: tokens everywhere, audited reveal
-   uv run python proofs/_cleanup.py && uv run python proofs/refund_cap.py
+   uv run python proofs/refund_cap.py
    ```
 
 ## How a request flows, step by step

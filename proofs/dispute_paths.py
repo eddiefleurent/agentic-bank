@@ -1,11 +1,12 @@
 """Proof: the dispute paths (auto refund, info round, timeout, adverse goes to a human).
 
-    uv run python proofs/dispute_paths.py [--with-timeout]
+    uv run python proofs/dispute_paths.py [--keep] [--with-timeout]
 
-Needs the deployed stack, alex and sam credential files, and fresh fixtures (run proofs/_cleanup.py
-between runs: one case per transaction ever). Default: t_alex_007 gets a question and is answered.
+Needs the deployed stack and alex and sam credential files. Resets the fixtures (proofs/_cleanup.py)
+before and after the run: one case per transaction ever. --keep skips the reset afterwards.
+Default: t_alex_007 gets a question and is answered.
 --with-timeout: it is left unanswered; the 2-minute lab wait runs out and rule 8 sends it to the
-analyst. Leaves t_alex_007 and t_alex_008 in ANALYST_REVIEW for proofs/analyst_pii.py.
+analyst. With --keep it leaves t_alex_007 and t_alex_008 in ANALYST_REVIEW for analyst_pii.py.
 Statements carry canary PII (see _dispute.py): the proof of tokenization is in analyst_pii.py.
 """
 
@@ -21,6 +22,7 @@ from _dispute import (
     case_row,
     refund_rows,
     require_fresh,
+    self_cleaning,
     wait_status,
 )
 
@@ -136,4 +138,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run(main)
+    with self_cleaning(end="--keep" not in sys.argv):
+        run(main)

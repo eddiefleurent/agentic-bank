@@ -50,8 +50,8 @@ stack per account, not a multi-environment template. Estimate the [cost](#cost) 
 
 Each script checks controls on the deployed stack and prints PASS or FAIL lines. They need admin
 AWS credentials and the customer logins from step 5. Each sign-in waits for a new TOTP window, so a
-script takes a few minutes. The dispute fixtures are one case per charge: reset them with
-`proofs/_cleanup.py` between runs. Each demo in [demos.md](demos.md) lists its own; all of them:
+script takes a few minutes. The dispute fixtures are one case per charge: the proofs reset
+them themselves (`proofs/_cleanup.py` is the manual reset). Each demo in [demos.md](demos.md) lists its own; all of them:
 
 ```
 uv run python proofs/customer_token.py
@@ -61,9 +61,9 @@ uv run python proofs/explain_charge.py
 uv run python proofs/transfer_approval.py alex
 uv run python proofs/revoke_agent.py alex
 uv run python proofs/money_wall.py
-uv run python proofs/_cleanup.py && uv run python proofs/dispute_paths.py --with-timeout
+uv run python proofs/dispute_paths.py --keep --with-timeout
 uv run python proofs/analyst_pii.py
-uv run python proofs/_cleanup.py && uv run python proofs/refund_cap.py
+uv run python proofs/refund_cap.py
 ```
 
 The proofs write to the deployed stack (transfers, disputes, refunds), so balances drift from the

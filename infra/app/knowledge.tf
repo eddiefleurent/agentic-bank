@@ -15,7 +15,7 @@
 variable "knowledge_base" {
   description = "Create the policy Knowledge Base and the ask_policy tool (needs the bootstrap changes in docs/rag.md)."
   type        = bool
-  default     = false
+  default     = true
 }
 
 locals {

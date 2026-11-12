@@ -185,11 +185,19 @@ data "aws_iam_policy_document" "plan" {
     ]
     resources = ["*"]
   }
+  # Refreshing aws_s3_object reads (HEAD/GET) the synthetic policy documents, so that one bucket is
+  # exempt from the object-read deny below. Nothing else outside state is readable.
   statement {
     sid           = "NoObjectReadsOutsideState"
     effect        = "Deny"
     actions       = ["s3:GetObject", "s3:GetObjectVersion"]
-    not_resources = ["${aws_s3_bucket.state.arn}/*"]
+    not_resources = ["${aws_s3_bucket.state.arn}/*", local.kb_docs_objects]
+  }
+  # S3 Vectors metadata reads for refresh (not vector data: no GetVectors, QueryVectors, ListVectors).
+  statement {
+    sid       = "ReadVectorStoreMetadata"
+    actions   = ["s3vectors:GetVectorBucket", "s3vectors:ListVectorBuckets", "s3vectors:GetIndex", "s3vectors:ListIndexes", "s3vectors:GetVectorBucketPolicy", "s3vectors:ListTagsForResource"]
+    resources = ["*"]
   }
 }
 
@@ -344,6 +352,58 @@ data "aws_iam_policy_document" "apply" {
     actions   = ["bedrock-agentcore:*"]
     resources = ["*"]
   }
+  # --- policy assistant (infra/app/knowledge.tf, docs/rag.md) ---
+  # Knowledge Base and data source calls. The service prefix is "bedrock". Create and List take no
+  # resource ARN; the rest are scoped to Knowledge Bases (IDs are random, so no name pattern fits).
+  statement {
+    sid       = "KnowledgeBaseUnscoped"
+    actions   = ["bedrock:CreateKnowledgeBase", "bedrock:ListKnowledgeBases"]
+    resources = ["*"]
+  }
+  statement {
+    sid = "KnowledgeBases"
+    actions = [
+      "bedrock:GetKnowledgeBase", "bedrock:UpdateKnowledgeBase", "bedrock:DeleteKnowledgeBase",
+      "bedrock:CreateDataSource", "bedrock:GetDataSource", "bedrock:UpdateDataSource",
+      "bedrock:DeleteDataSource", "bedrock:ListDataSources",
+      "bedrock:StartIngestionJob", "bedrock:GetIngestionJob", "bedrock:ListIngestionJobs",
+      "bedrock:TagResource", "bedrock:UntagResource", "bedrock:ListTagsForResource",
+    ]
+    resources = ["${format(local.arn_prefix, "bedrock")}:knowledge-base/*"]
+  }
+  # The docs bucket: full S3 on this one bucket name pattern (the provider reads ~15 bucket settings
+  # on every refresh; a hand list drifts). Objects too: synthetic documents, one object per section.
+  statement {
+    sid       = "KnowledgeDocsBucket"
+    actions   = ["s3:*"]
+    resources = [local.kb_docs_bucket, local.kb_docs_objects]
+  }
+  statement {
+    sid = "KnowledgeVectorStore"
+    actions = [
+      "s3vectors:CreateVectorBucket", "s3vectors:DeleteVectorBucket", "s3vectors:GetVectorBucket",
+      "s3vectors:CreateIndex", "s3vectors:DeleteIndex", "s3vectors:GetIndex", "s3vectors:ListIndexes",
+      "s3vectors:GetVectorBucketPolicy", "s3vectors:PutVectorBucketPolicy", "s3vectors:DeleteVectorBucketPolicy",
+      "s3vectors:TagResource", "s3vectors:UntagResource", "s3vectors:ListTagsForResource",
+    ]
+    resources = [local.kb_vector_bucket, "${local.kb_vector_bucket}/index/*"]
+  }
+  statement {
+    sid       = "KnowledgeVectorStoreList"
+    actions   = ["s3vectors:ListVectorBuckets"]
+    resources = ["*"]
+  }
+  # Handing the KB role to Bedrock: only agentic-bank-app-kb, only to bedrock.amazonaws.com.
+  statement {
+    sid       = "PassKnowledgeBaseRole"
+    actions   = ["iam:PassRole"]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/agentic-bank-app-kb"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["bedrock.amazonaws.com"]
+    }
+  }
   # Guardrail: even a future wide policy cannot act in another region. Global services
   # (IAM, STS, ...) have no region, so they are exempt from the deny.
   statement {
@@ -368,6 +428,10 @@ locals {
   arn_prefix   = "arn:aws:%s:${var.region}:${data.aws_caller_identity.current.account_id}"
   app_roles    = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/agentic-bank-app-*"
   boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/agentic-bank-workload-boundary"
+  # Policy assistant resources (names fixed in infra/app/knowledge.tf).
+  kb_docs_bucket   = "arn:aws:s3:::agentic-bank-kb-docs-${data.aws_caller_identity.current.account_id}"
+  kb_docs_objects  = "${local.kb_docs_bucket}/*"
+  kb_vector_bucket = "${format(local.arn_prefix, "s3vectors")}:bucket/agentic-bank-kb-vectors-${data.aws_caller_identity.current.account_id}"
 }
 
 data "aws_iam_policy_document" "boundary" {
@@ -429,6 +493,28 @@ data "aws_iam_policy_document" "boundary" {
     sid       = "DisputeCallback"
     actions   = ["states:SendTaskSuccess"]
     resources = ["*"]
+  }
+  # Policy assistant. Retrieve (tools role) is served by Bedrock; the rest is what the Knowledge Base
+  # role needs to ingest and to serve Retrieve. Embedding InvokeModel is covered by "Review" above.
+  statement {
+    sid       = "KnowledgeRetrieve"
+    actions   = ["bedrock:Retrieve"]
+    resources = ["${format(local.arn_prefix, "bedrock")}:knowledge-base/*"]
+  }
+  statement {
+    sid       = "KnowledgeDocsRead"
+    actions   = ["s3:GetObject"]
+    resources = [local.kb_docs_objects]
+  }
+  statement {
+    sid       = "KnowledgeDocsList"
+    actions   = ["s3:ListBucket"]
+    resources = [local.kb_docs_bucket]
+  }
+  statement {
+    sid       = "KnowledgeVectors"
+    actions   = ["s3vectors:GetIndex", "s3vectors:QueryVectors", "s3vectors:PutVectors", "s3vectors:GetVectors", "s3vectors:DeleteVectors"]
+    resources = ["${local.kb_vector_bucket}/index/*"]
   }
   statement {
     sid       = "AnalystUrl"

@@ -3,15 +3,25 @@
     uv run python proofs/refund_cap.py
 
 Files disputes on t_alex_009 (-$12), 010 (-$20), 011 (-$30) at the same moment: all three are
-clear and under $50, so each wants an auto refund. Needs fresh fixtures: no cases for these
-transactions and free REFUNDQ#1/#2 slots (run proofs/_cleanup.py after dispute_paths.py).
+clear and under $50, so each wants an auto refund. Resets the fixtures before and after
+(proofs/_cleanup.py): it needs no cases for these transactions and free REFUNDQ#1/#2 slots.
 """
 
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 from _common import Stack, call_tool, check, run
-from _dispute import ACCOUNT, TABLE, balance, case_id, case_row, ddb, refund_rows, require_fresh
+from _dispute import (
+    ACCOUNT,
+    TABLE,
+    balance,
+    case_id,
+    case_row,
+    ddb,
+    refund_rows,
+    require_fresh,
+    self_cleaning,
+)
 
 TXNS = ["t_alex_009", "t_alex_010", "t_alex_011"]
 DONE = {"REFUNDED", "ANALYST_REVIEW", "CLOSED_NO_REFUND"}
@@ -72,4 +82,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run(main)
+    with self_cleaning():
+        run(main)

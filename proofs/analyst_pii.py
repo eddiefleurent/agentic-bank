@@ -2,9 +2,10 @@
 
     uv run python proofs/analyst_pii.py
 
-Run right after proofs/dispute_paths.py (cases t_alex_006/007/008 exist; 007 and 008 wait in
+Run right after `dispute_paths.py --keep` (cases t_alex_006/007/008 exist; 007 and 008 wait in
 ANALYST_REVIEW). Needs admin AWS credentials that may assume agentic-bank-app-analyst, and about a
-minute of waiting for log delivery. Ends by deciding both cases as the analyst.
+minute of waiting for log delivery. Ends by deciding both cases as the analyst, then resets
+the fixtures.
 """
 
 import json
@@ -24,6 +25,7 @@ from _dispute import (
     case_row,
     ddb,
     refund_rows,
+    self_cleaning,
     wait_status,
 )
 from botocore.exceptions import ClientError
@@ -190,4 +192,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run(main)
+    with self_cleaning(start=False):
+        run(main)
