@@ -12,7 +12,12 @@ locals {
   dispute_machine_arn = "${format(local.arn, "states")}:stateMachine:agentic-bank-dispute"
   vault_arn           = "${format(local.arn, "dynamodb")}:table/agentic-bank-vault"
   # Grounding thresholds are not calibrated on this case set; see ADR 0007 for the weak probe result.
-  review_model = "openai.gpt-oss-120b-1:0"
+  review_model = "nvidia.nemotron-super-3-120b" # the classifier: NVIDIA Nemotron 3 Super (evals/disputes)
+  # The other two model consumers stay on gpt-oss-120b: on Nemotron the policy answerer was refused
+  # by the grounding check on 6 of 17 answerable questions (11/17 vs 15-16/17) and the Strands
+  # investigator cited field names that do not exist in the case file on 7 of 8 cases.
+  policy_model       = "openai.gpt-oss-120b-1:0"
+  investigator_model = "openai.gpt-oss-120b-1:0"
 
   # Tools: tokenize (Comprehend, KMS Encrypt, vault PutItem), write the case through the case-writer
   # role, start the workflow and resume it when the customer answers. Still no data-table rights.
@@ -29,6 +34,11 @@ locals {
   # The reviewer is a classifier: one model, one guardrail, no data.
   review_grants = [
     { Effect = "Allow", Action = "bedrock:InvokeModel", Resource = "arn:aws:bedrock:us-east-1::foundation-model/${local.review_model}" },
+    { Effect = "Allow", Action = "bedrock:ApplyGuardrail", Resource = aws_bedrock_guardrail.grounding.guardrail_arn },
+  ]
+  # The policy answerer (knowledge.tf): its own model, the same guardrail.
+  policy_grants = [
+    { Effect = "Allow", Action = "bedrock:InvokeModel", Resource = "arn:aws:bedrock:us-east-1::foundation-model/${local.policy_model}" },
     { Effect = "Allow", Action = "bedrock:ApplyGuardrail", Resource = aws_bedrock_guardrail.grounding.guardrail_arn },
   ]
   analyst_grants = [

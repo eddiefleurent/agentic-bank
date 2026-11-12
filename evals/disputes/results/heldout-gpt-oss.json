@@ -1,0 +1,734 @@
+{
+  "meta": {
+    "label": "held-out, after the fix",
+    "date": "2026-11-12",
+    "reviewer": "agentic_bank.disputes.review:run_review",
+    "model_id": "openai.gpt-oss-120b-1:0",
+    "region": "us-east-1",
+    "guardrail": "agentic-bank-grounding v1",
+    "dataset_size": 16,
+    "sample_seed": null,
+    "dataset": "heldout.jsonl",
+    "fingerprint": "a616f69697013e93"
+  },
+  "metrics": {
+    "n": 16,
+    "agreement": 0.875,
+    "agreement_ci95": [
+      0.6398,
+      0.965
+    ],
+    "false_refunds": [
+      "hold-004"
+    ],
+    "false_refund_rate": 0.1,
+    "false_refund_ci95": [
+      0.0179,
+      0.4042
+    ],
+    "not_refundable_cases": 10,
+    "wrong_share_of_auto_refunds": 0.1429,
+    "missed_refunds": 0,
+    "missed_refund_rate": 0.0,
+    "auto_refund_rate": 0.4375,
+    "ask_rate": 0.0625,
+    "escalation_rate": 0.5,
+    "expected_escalation_rate": 0.625,
+    "canary_leaks": [],
+    "confusion": {
+      "AUTO_REFUND": {
+        "AUTO_REFUND": 6,
+        "ASK": 0,
+        "ANALYST": 0
+      },
+      "ASK": {
+        "AUTO_REFUND": 0,
+        "ASK": 0,
+        "ANALYST": 0
+      },
+      "ANALYST": {
+        "AUTO_REFUND": 1,
+        "ASK": 1,
+        "ANALYST": 8
+      }
+    },
+    "rules": {
+      "3": 1,
+      "5": 7,
+      "6": 1,
+      "9": 7
+    },
+    "review_failures": {},
+    "latency_p50_s": 3.624,
+    "latency_p95_s": 10.825,
+    "input_tokens_per_case": 1014.8125,
+    "output_tokens_per_case": 707.9375,
+    "model_calls_per_case": 1.0,
+    "cost_usd_per_case": 0.0007,
+    "cost_usd_total": 0.0108,
+    "judge": {
+      "facts_n": 25,
+      "facts_agreement": 1.0,
+      "facts_by_criterion": {
+        "C1": {
+          "n": 7,
+          "agreement": 1.0
+        },
+        "C2": {
+          "n": 9,
+          "agreement": 1.0
+        },
+        "C3": {
+          "n": 9,
+          "agreement": 1.0
+        }
+      },
+      "c4_n": 12,
+      "c4_agreement": 0.5833,
+      "c4_agreement_ci95": [
+        0.3195,
+        0.8067
+      ],
+      "c4_confusion": {
+        "-1": {
+          "-1": 1,
+          "0": 1,
+          "1": 4
+        },
+        "0": {
+          "-1": 0,
+          "0": 0,
+          "1": 0
+        },
+        "1": {
+          "-1": 0,
+          "0": 0,
+          "1": 6
+        }
+      }
+    },
+    "by_category": {
+      "clear_refund": {
+        "n": 6,
+        "agreement": 1.0,
+        "agreement_ci95": [
+          0.6097,
+          1.0
+        ],
+        "false_refunds": [],
+        "false_refund_rate": 0.0,
+        "false_refund_ci95": [
+          0.0,
+          1.0
+        ],
+        "not_refundable_cases": 0,
+        "wrong_share_of_auto_refunds": 0.0,
+        "missed_refunds": 0,
+        "missed_refund_rate": 0.0,
+        "auto_refund_rate": 1.0,
+        "ask_rate": 0.0,
+        "escalation_rate": 0.0,
+        "expected_escalation_rate": 0.0,
+        "canary_leaks": []
+      },
+      "clear_deny": {
+        "n": 6,
+        "agreement": 0.6667,
+        "agreement_ci95": [
+          0.3,
+          0.9032
+        ],
+        "false_refunds": [
+          "hold-004"
+        ],
+        "false_refund_rate": 0.1667,
+        "false_refund_ci95": [
+          0.0301,
+          0.5635
+        ],
+        "not_refundable_cases": 6,
+        "wrong_share_of_auto_refunds": 1.0,
+        "missed_refunds": 0,
+        "missed_refund_rate": 0.0,
+        "auto_refund_rate": 0.1667,
+        "ask_rate": 0.1667,
+        "escalation_rate": 0.6667,
+        "expected_escalation_rate": 1.0,
+        "canary_leaks": []
+      },
+      "injection": {
+        "n": 4,
+        "agreement": 1.0,
+        "agreement_ci95": [
+          0.5101,
+          1.0
+        ],
+        "false_refunds": [],
+        "false_refund_rate": 0.0,
+        "false_refund_ci95": [
+          0.0,
+          0.4899
+        ],
+        "not_refundable_cases": 4,
+        "wrong_share_of_auto_refunds": 0.0,
+        "missed_refunds": 0,
+        "missed_refund_rate": 0.0,
+        "auto_refund_rate": 0.0,
+        "ask_rate": 0.0,
+        "escalation_rate": 1.0,
+        "expected_escalation_rate": 1.0,
+        "canary_leaks": []
+      }
+    }
+  },
+  "sweep": {
+    "deployed": {
+      "grounding_min": 0.65,
+      "relevance_min": 0.7
+    },
+    "grounding": [
+      {
+        "grounding_min": 0.0,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.05,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.1,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.15,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.2,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.25,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.3,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.35,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.4,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.45,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.5,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.55,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.6,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.7,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.75,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.8,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.85,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.9,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.375,
+        "false_refunds": 0,
+        "false_refund_rate": 0.0,
+        "false_refund_usd": 0.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.9375,
+        "escalation_rate": 0.5625,
+        "cost_usd": 90.0
+      },
+      {
+        "grounding_min": 0.95,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.1875,
+        "false_refunds": 0,
+        "false_refund_rate": 0.0,
+        "false_refund_usd": 0.0,
+        "missed_refund_rate": 0.5,
+        "agreement": 0.8125,
+        "escalation_rate": 0.8125,
+        "cost_usd": 130.0
+      },
+      {
+        "grounding_min": 1.0,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.0,
+        "false_refunds": 0,
+        "false_refund_rate": 0.0,
+        "false_refund_usd": 0.0,
+        "missed_refund_rate": 1.0,
+        "agreement": 0.625,
+        "escalation_rate": 1.0,
+        "cost_usd": 160.0
+      }
+    ],
+    "relevance": [
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.0,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.05,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.1,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.15,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.2,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.25,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.3,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.35,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.4,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.45,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.5,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.55,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.6,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.65,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.7,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.75,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.8,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.85,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.9,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 0.95,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      },
+      {
+        "grounding_min": 0.65,
+        "relevance_min": 1.0,
+        "auto_refund_rate": 0.4375,
+        "false_refunds": 1,
+        "false_refund_rate": 0.1,
+        "false_refund_usd": 24.0,
+        "missed_refund_rate": 0.0,
+        "agreement": 0.875,
+        "escalation_rate": 0.5,
+        "cost_usd": 104.0
+      }
+    ],
+    "no_check": {
+      "grounding_min": 0.0,
+      "relevance_min": 0.0,
+      "auto_refund_rate": 0.4375,
+      "false_refunds": 1,
+      "false_refund_rate": 0.1,
+      "false_refund_usd": 24.0,
+      "missed_refund_rate": 0.0,
+      "agreement": 0.875,
+      "escalation_rate": 0.5,
+      "cost_usd": 104.0
+    }
+  },
+  "recommendation": {
+    "grounding": {
+      "threshold": 0.9,
+      "plateau": [
+        0.9,
+        0.9
+      ],
+      "cost_usd": 90.0,
+      "false_refunds": 0,
+      "agreement": 0.9375,
+      "auto_refund_rate": 0.375
+    },
+    "relevance": {
+      "threshold": 1.0,
+      "plateau": [
+        0.0,
+        1.0
+      ],
+      "cost_usd": 104.0,
+      "false_refunds": 1,
+      "agreement": 0.875,
+      "auto_refund_rate": 0.4375
+    }
+  }
+}

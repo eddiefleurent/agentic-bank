@@ -22,9 +22,11 @@ Diagrams:
 | Tools `explain_charge`, `dispute_transaction`, `get_dispute`, `answer_dispute` | Same Lambda; disputes write through `agentic-bank-app-case-writer` (role policy: case attributes only), tokenize with Comprehend + KMS, start the workflow |
 | Card network (Order Insight) | Mock in the zip: `network/orders.json` behind an `OrderInsight` protocol |
 | Dispute workflow | Step Functions Standard `agentic-bank-dispute` (JSONata), role `agentic-bank-app-workflow`; worker Lambda `agentic-bank-dispute` assumes `agentic-bank-app-data-writer` (only that Lambda may; the only dispute money writer); review Lambda `agentic-bank-review` (`openai.gpt-oss-120b-1:0` + guardrail `agentic-bank-grounding`) |
+| Dispute investigator (**planned, not deployed**) | Strands supervisor + two read-only specialists, behind the reviewer's signature; would run on AgentCore Runtime, invoked by the review Lambda (`REVIEWER=runtime`). Terraform gated by `investigator_enabled = false`. See [investigator.md](investigator.md) |
 | Analyst | Lambda `agentic-bank-analyst` behind a function URL (`AWS_IAM`), human role `agentic-bank-app-analyst`, sparse GSI `analyst_queue` |
 | PII vault | DynamoDB `agentic-bank-vault`; KMS key `alias/agentic-bank-pii` (bootstrap; only the analyst function may decrypt) |
 | Bank app: list, approve, reject, revoke agent | HTTP API `agentic-bank-app` (JWT authorizer, `app` client only) -> Lambda `agentic-bank-approvals`, assumes `agentic-bank-app-approver`; CLI `scripts/bank_app.py` plays the phone |
+| Policy assistant `ask_policy`, `lookup_policy` (**planned, not deployed**) | Bedrock Knowledge Base `agentic-bank-policies` on S3 Vectors, Titan Text Embeddings v2, one chunk per document section; tools Lambda sets the `audience = customer` filter from the caller's identity. Terraform written and off (`var.knowledge_base`); logic measured in local mode only. See [rag.md](rag.md) |
 | Data | DynamoDB `agentic-bank-data` (accounts, transactions, payees, transfers, cases, refund slots, audit), `agentic-bank-revocations`; synthetic customers alex, sam, jordan |
 
 ## Patterns
@@ -37,6 +39,7 @@ Diagrams:
 | Propose, never execute | Agents write requests; only the customer's MFA approval moves money, in one transaction |
 | Kill switch | Revoke an agent; its tokens stop working on the next call |
 | LLM in a regulated decision | Code facts, model judgment, grounding check, code decides, humans deny |
+| Bounded agent, advice only (**planned, not deployed**) | Agents as tools with shared turn, token, tool-call and time caps; output is a typed recommendation that code may ignore (decision 0010) |
 | Wait for a human for free | Step Functions task token: no compute while waiting |
 | Exactly-once money | Idempotent execution names, conditional writes, atomic limits |
 
@@ -76,6 +79,9 @@ Diagrams:
 Run the proofs: see [deploy.md](deploy.md#run-the-proofs).
 
 ## Known limits (lean build)
+
+Planned, not deployed: the policy assistant ([rag.md](rag.md)). Its audience filter is enforced
+by our code, not IAM, and its score threshold is calibrated only in local mode.
 
 Checked with the awslabs Well-Architected Security MCP server (read-only, SecurityAudit role). Findings not yet fixed are listed below.
 
@@ -117,7 +123,7 @@ Checked with the awslabs Well-Architected Security MCP server (read-only, Securi
   It cannot get a refund that way (see the risk table), but it can force the customer's own case to
   close or fail. A bank keeps task tokens where the agent-side code cannot read them.
 - One AWS account, no AWS Organization or service control policies, one region: no separation of duties between deployers, key administrators and
-  auditors, no tested restores or recovery plan (PITR is on for the data and vault tables, not revocations). CloudTrail and API access logs exist, but nothing alerts on them. No model evaluation set or drift monitoring.
+  auditors, no tested restores or recovery plan (PITR is on for the data and vault tables, not revocations). CloudTrail and API access logs exist, but nothing alerts on them. The dispute reviewer has a 150-case synthetic evaluation set ([evaluation](evaluation.md)): one author, no second labeler, and a measured 7% false-refund rate on cases that should not auto-refund. No drift monitoring.
 - The proposer role's IAM limits attribute names but not the sort key, so it could overwrite the customer's own ACCT or PAYEE row.
 - No per-customer rate limits. `assume_role` per call, not cached.
 - Seed rows are in Terraform state (synthetic only). State bucket uses the AWS-managed key and has no S3 access logging.
@@ -140,6 +146,6 @@ that the system is secure, complete or compliant. The full list is under
 | Monitoring | Log lines with 30-day retention; no alarms, no X-Ray tracing | Alarms on denials, failed or stuck workflows and key policy changes; GuardDuty, Security Hub, IAM Access Analyzer and Macie enabled; X-Ray tracing; tamper-evident audit in a separate account; on-call and runbooks |
 | Identity | Password + TOTP for three seeded users | Identity proofing and onboarding, phishing-resistant sign-in, device binding, account recovery |
 | Payments and fraud | A balance update in one table; a $1,000 cap | A real ledger and payment rails, velocity and daily limits, fraud scoring, step-up for new payees |
-| The model | One model, thresholds not calibrated, a few hand-run cases | Model risk management: independent validation, an evaluation set, monitoring of drift and override rates, documented human oversight |
+| The model | Nemotron 3 Super classifies disputes (gpt-oss-120b still answers policy questions and runs the investigator; [evaluation.md](evaluation.md));  a 150-case synthetic evaluation set and an offline gate; the grounding threshold was swept and found to be a weak lever, so it is unchanged; an agentic investigator is written but not deployed ([investigator.md](investigator.md)) | Model risk management: independent validation, an evaluation set, monitoring of drift and override rates, documented human oversight |
 | Compliance | None of it | Legal and compliance review (dispute timelines and notices, privacy, card data scope, record retention), third-party risk review of agent and model vendors |
 | Assurance | Unit tests, proof scripts and a read-only Well-Architected Security review (awslabs MCP server, SecurityAudit role) | Threat model, penetration test, load and failure testing, change approval |
