@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (gitignored). Defaults are shown.
+# The OIDC sub prefix the CI roles trust. Prefer GitHub's immutable form, with the numeric owner and
+# repo IDs: a deleted-and-recreated repo (or a renamed owner) with the same name cannot match it.
+# Check the format your repo uses with: gh api repos/OWNER/REPO/actions/oidc/customization/sub
+github_oidc_subject_prefix = "repo:OWNER@OWNER_ID/REPO@REPO_ID"
+# Only if the repository still uses name-based subjects: "repo:OWNER/REPO"
+region = "us-east-1"
+
+# false if the account already has the token.actions.githubusercontent.com OIDC provider
+create_oidc_provider = true

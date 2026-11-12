@@ -1,0 +1,25 @@
+.terraform/
+*.tfstate*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+backend.hcl
+*.zip
+tfplan
+.venv
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+
+# Local credentials and diagnostic/build artifacts (examples must be synthetic).
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+.aws/
+credentials
+plan.txt
+*.log
+build/

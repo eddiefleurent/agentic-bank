@@ -1,0 +1,34 @@
+@startuml
+' Level 3 - "I never got the HOMEBREW order, dispute it": code facts, model review, code decides.
+' Render: plantuml-new -tpng 04-dispute.puml
+'   1-3 Gateway: JWT, interceptor (customer = token subject), Cedar (scope disputes). The tools Lambda
+'       tokenizes the statement (Comprehend + 7-digit rule, KMS into the vault), writes CASE# through the
+'       case-writer role (case attributes on the role policy; LeadingKeys only on the session policy),
+'       then starts the execution (name on the case).
+'   4   Build: code facts from the TXN row and Order Insight (C1 delivery = not_shipped: +1).
+'   5   Review: gpt-oss scores C1 and C4 from the tokenized case file; ApplyGuardrail scores grounding.
+'   6   Decide (pure code, rule 5): all +1 and <= $50.00 -> AUTO_REFUND. Any -1 -> analyst, never a denial.
+'   7   Settle: one TransactWriteItems (case -> REFUNDED, balance +, refund row once, REFUNDQ# slot).
+'       No free slot -> analyst queue. A replay returns the stored result.
+'   8   The agent polls get_dispute: "Refunded 34.00".
+hide footbox
+skinparam ArrowColor #545B64
+skinparam SequenceLifeLineBorderColor #C9CED6
+autonumber
+
+participant "Agent" as A
+participant "Gateway + tools" as T
+participant "Step Functions" as S
+participant "Worker" as W
+participant "Review (model)" as R
+participant "DynamoDB" as D
+
+A -> T : dispute_transaction
+T -> D : tokens; Put CASE#
+T -> S : StartExecution
+S -> W : Build (code facts)
+S -> R : Review + grounding
+S -> W : Decide (rules)
+W -> D : Settle (one transaction)
+A -> T : get_dispute -> REFUNDED
+@enduml

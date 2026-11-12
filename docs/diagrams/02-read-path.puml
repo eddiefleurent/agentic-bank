@@ -1,0 +1,32 @@
+@startuml
+' Level 3 - One read: "what's my balance?" Where each check happens.
+' Render: plantuml-new -tpng 02-read-path.puml
+'   1-2 Gateway JWT authorizer: signature, issuer, expiry, client_id. Bad or missing token = 401.
+'   3   Interceptor (REQUEST, runs before Cedar): customer = token subject, overwriting the agent's value.
+'   4-5 Cedar (ENFORCE, default deny): permit only if the token's scope holds .../read.
+'   6-8 Tools Lambda has no table rights. It assumes data-reader with a session policy
+'       (LeadingKeys = subject), so DynamoDB can only answer for that customer's partition.
+'   Another customer's account id gets {"error": "no such account"}.
+hide footbox
+skinparam ArrowColor #545B64
+skinparam SequenceLifeLineBorderColor #C9CED6
+autonumber
+
+participant "Agent" as A
+participant "Gateway" as G
+participant "Cedar" as C
+participant "Interceptor" as I
+participant "Tools Lambda" as T
+participant "DynamoDB" as D
+
+A -> G : tools/call + token
+G -> G : check JWT
+G -> I : request
+I --> G : customer = sub
+G -> C : allow? (scope)
+C --> G : permit
+G -> T : tool + customer
+T -> D : Query (session role)
+D --> T : own rows only
+T --> A : result (via gateway)
+@enduml

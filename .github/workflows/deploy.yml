@@ -1,0 +1,92 @@
+# On push to main: plan with the read-only role, then apply that exact plan with the main-only role.
+# AWS access is OIDC: no stored keys. One job, so the plan file (it holds the full state) never
+# leaves the runner: in a public repository any signed-in user can download workflow artifacts.
+name: deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "infra/app/**"
+      - "src/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+
+# One run at a time, never cancelled midway: a cancelled apply can leave a held lock.
+concurrency:
+  group: deploy-v2
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  # A secret, not a variable: secret values are masked everywhere in the logs.
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # lets the job request a GitHub OIDC token for AWS
+    defaults:
+      run:
+        working-directory: infra/app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.1"
+          terraform_wrapper: false
+      - name: Plan role (read-only)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/agentic-bank-ci-plan
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Init
+        run: |
+          sed "s/<ACCOUNT_ID>/$AWS_ACCOUNT_ID/" backend.hcl.example > backend.hcl
+          terraform init -backend-config=backend.hcl
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -lock=false -detailed-exitcode -out=tfplan -no-color > plan.txt 2>&1
+          code=$?
+          set -e
+          # Public logs: only the changed resource addresses and the summary line, never the diff.
+          if [ "$code" -eq 1 ]; then grep -E '^(Error|│ Error)' plan.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'; exit 1; fi
+          grep -E '^  # .* (will be|must be)|^Plan:|^No changes' plan.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'
+          rm plan.txt
+          echo "changes=$([ "$code" -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      # Latest-head guard: an older queued run must not apply a stale plan over a newer one.
+      - name: Require current main
+        if: steps.plan.outputs.changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$GITHUB_SHA" != "$latest" ]; then
+            echo "Refusing deployment: this run is no longer current main." >&2
+            exit 1
+          fi
+      - name: Apply role (main only)
+        if: steps.plan.outputs.changes == 'true'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/agentic-bank-ci-apply-v2
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+      - name: Apply the saved plan
+        if: steps.plan.outputs.changes == 'true'
+        run: |
+          set -euo pipefail
+          # Apply prints each attribute it sets; show only the result lines.
+          terraform apply -no-color tfplan > apply.txt 2>&1 || { grep -E 'Error' apply.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'; exit 1; }
+          grep -E 'complete after|^Apply complete' apply.txt | sed -E 's/[0-9]{12}/[ACCOUNT]/g'
+          rm apply.txt

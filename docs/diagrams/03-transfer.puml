@@ -1,0 +1,32 @@
+@startuml
+' Level 3 - "Send $500 to my landlord": the agent proposes, only the customer's fresh MFA sign-in executes.
+' Render: plantuml-new -tpng 03-transfer.puml
+'   1-3 Gateway (JWT, interceptor incl. revocation check, Cedar: scope propose and <= $1,000), then the
+'       tools Lambda writes a PENDING proposal as agentic-bank-app-proposer (PutItem, proposal fields only).
+'   4   The bank app signs in fresh: password + TOTP with the public `app` client.
+'   5-6 API Gateway's JWT authorizer accepts only `app` tokens (the agent's get 401). The handler checks
+'       auth_time <= 300 s and that stored == recomputed == sent request_hash.
+'   7-8 One TransactWriteItems as agentic-bank-app-approver: PENDING -> EXECUTED, debit, ledger row.
+'       A replay or second concurrent approval fails condition 1: 409, no money moves.
+hide footbox
+skinparam ArrowColor #545B64
+skinparam SequenceLifeLineBorderColor #C9CED6
+autonumber
+
+participant "Agent" as A
+participant "MCP gateway" as G
+participant "Tools Lambda" as T
+participant "Bank app (CLI)" as P
+participant "Approvals API" as H
+participant "DynamoDB" as D
+
+A -> G : propose_transfer + token
+G -> T : allowed (scope, amount)
+T -> D : Put XFER PENDING
+P -> P : sign in: password + TOTP
+P -> H : approve + request_hash
+H -> H : fresh? hash matches?
+H -> D : one transaction
+D --> H : executed (exactly once)
+H --> P : EXECUTED
+@enduml

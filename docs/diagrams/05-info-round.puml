@@ -1,0 +1,31 @@
+@startuml
+' Level 3 - TRAILGEAR "never came" but delivered without proof: one question, then a person decides.
+' Render: plantuml-new -tpng 05-info-round.puml
+'   1   Decide rule 6 (C1 = 0, round 0): Ask writes the template question and the task token on the case
+'       and the execution waits (.waitForTaskToken, 120 s lab value; no compute while waiting).
+'   2-4 The agent reads the question; answer_dispute tokenizes the answer, claims the token with a
+'       conditional UpdateItem (a second answer finds none) and calls SendTaskSuccess.
+'       Silence for 120 s instead: rule 8, straight to the analyst.
+'   5   Round 1 is still unclear (rule 7): ToAnalyst opens analyst_queue = "open" (sparse GSI) and waits 1 h.
+'   6-7 The analyst (IAM-signed function URL, role checked by the Lambda) may reveal a token: AUDIT# row first,
+'       then KMS Decrypt. approve -> Settle; deny -> CLOSED_NO_REFUND with decided_by = staff:<session>.
+hide footbox
+skinparam ArrowColor #545B64
+skinparam SequenceLifeLineBorderColor #C9CED6
+autonumber
+
+participant "Agent" as A
+participant "Gateway + tools" as T
+participant "Step Functions" as S
+participant "Worker" as W
+participant "Analyst Lambda" as N
+actor "Analyst" as H
+
+S -> W : Ask (store question + token)
+A -> T : get_dispute -> question
+A -> T : answer_dispute
+T -> S : SendTaskSuccess
+S -> W : rebuild, review, ToAnalyst
+H -> N : reveal (audited) / decide
+N -> S : SendTaskSuccess (approve|deny)
+@enduml

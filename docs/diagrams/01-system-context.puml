@@ -1,0 +1,21 @@
+@startuml
+' Level 1 - System context: who talks to Agentic Bank and through what.
+' Render: plantuml-new -tpng 01-system-context.puml
+'   - The customer owns their agent (Claude or another MCP client) and signs in to the bank
+'     themselves (password + TOTP). The bank never sees the agent's prompt or model.
+'   - The agent reaches the bank only through the MCP gateway, with the customer's own token.
+'   - The card network is a mock that supplies order data to explain a charge.
+!include <C4/C4_Context>
+LAYOUT_TOP_DOWN()
+HIDE_STEREOTYPE()
+
+Person(customer, "Customer", "Signs in with password + TOTP")
+System_Ext(agent, "Customer's AI agent", "Claude or any MCP client; not controlled by the bank")
+System(bank, "Agentic Bank", "Sign-in, MCP gateway, policy, read tools, transfers, disputes")
+System_Ext(card, "Card network (mock)", "Order data for disputes")
+
+Rel(customer, agent, "asks")
+Rel(agent, bank, "MCP + customer token")
+Rel(customer, bank, "signs in")
+Rel(bank, card, "order data")
+@enduml

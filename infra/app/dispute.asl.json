@@ -1,0 +1,136 @@
+{
+  "Comment": "Dispute workflow. Standard, one execution per case (name = case_id plus a random suffix). Code decides; the model only reviews. Placeholders are filled by templatefile: worker_arn, review_arn.",
+  "QueryLanguage": "JSONata",
+  "StartAt": "Build",
+  "TimeoutSeconds": 10800,
+  "States": {
+    "Build": {
+      "Comment": "Read-only: facts from the case row and the order. Safe to retry.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "build", "customer": "{% $states.input.customer %}", "case_id": "{% $states.input.case_id %}"}
+      },
+      "Assign": {
+        "customer": "{% $states.input.customer %}",
+        "case_id": "{% $states.input.case_id %}",
+        "built": "{% $states.result.Payload %}"
+      },
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ToAnalyst"}],
+      "Next": "Review"
+    },
+    "Review": {
+      "Comment": "Model plus grounding check. A read: retry is safe. Any failure routes to an analyst, never to a refund.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {"FunctionName": "${review_arn}", "Payload": {"case_file": "{% $built.case_file %}"}},
+      "Assign": {"review": "{% $states.result.Payload %}"},
+      "TimeoutSeconds": 60,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Assign": {"review": {"review": null, "grounding": null, "failure": "review step failed"}}, "Next": "Decide"}],
+      "Next": "Decide"
+    },
+    "Decide": {
+      "Comment": "Pure function in code; stores the decision on the case. Idempotent (same inputs, same row), so it retries.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "decide", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "built": "{% $built %}", "review": "{% $review %}"}
+      },
+      "Assign": {"decision": "{% $states.result.Payload %}"},
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ToAnalyst"}],
+      "Next": "Route"
+    },
+    "Route": {
+      "Type": "Choice",
+      "Choices": [
+        {"Condition": "{% $decision.outcome = 'AUTO_REFUND' %}", "Next": "SettleAuto"},
+        {"Condition": "{% $decision.outcome = 'ASK' %}", "Next": "Ask"}
+      ],
+      "Default": "ToAnalyst"
+    },
+    "SettleAuto": {
+      "Comment": "The only money step. Idempotent (a replay returns the stored result), so it retries. settled=false means the 2-per-90-days cap is full.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "settle", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "auto": true, "decided_by": "code"}
+      },
+      "Assign": {"settled": "{% $states.result.Payload.settled %}"},
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["SettleRefused"], "Next": "ToAnalyst"}],
+      "Next": "SettledOrAnalyst"
+    },
+    "SettledOrAnalyst": {
+      "Type": "Choice",
+      "Choices": [{"Condition": "{% $settled = true %}", "Next": "Done"}],
+      "Default": "ToAnalyst"
+    },
+    "Ask": {
+      "Comment": "Writes the template question and the task token, then waits for the customer. No retry: it writes a token. Silence for 120 s (lab value; a bank would wait days) goes to an analyst.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "ask", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "question_id": "{% $decision.question_id %}", "task_token": "{% $states.context.Task.Token %}"}
+      },
+      "TimeoutSeconds": 120,
+      "Output": {"customer": "{% $customer %}", "case_id": "{% $case_id %}"},
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ToAnalyst"}],
+      "Next": "Build"
+    },
+    "ToAnalyst": {
+      "Comment": "Opens the case in the analyst queue and waits up to 1 h (waiting costs nothing). No retry: it writes a token. Timeout or error: failed, visible in the console, case stays in the queue.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "to_analyst", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "task_token": "{% $states.context.Task.Token %}"}
+      },
+      "TimeoutSeconds": 3600,
+      "Assign": {"staff": "{% $states.result %}"},
+      "Next": "Verdict"
+    },
+    "Verdict": {
+      "Type": "Choice",
+      "Choices": [
+        {"Condition": "{% $staff.decision = 'approve' %}", "Next": "SettleApproved"},
+        {"Condition": "{% $staff.decision = 'deny' %}", "Next": "Close"}
+      ],
+      "Default": "BadVerdict"
+    },
+    "BadVerdict": {"Type": "Fail", "Error": "BadVerdict", "Cause": "staff decision is neither approve nor deny"},
+    "SettleApproved": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "settle", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "auto": false, "decided_by": "{% $staff.decided_by %}"}
+      },
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Next": "Done"
+    },
+    "Close": {
+      "Comment": "A person said no. Conditional on ANALYST_REVIEW, so a repeat changes nothing; it retries.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${worker_arn}",
+        "Payload": {"action": "close", "customer": "{% $customer %}", "case_id": "{% $case_id %}", "decided_by": "{% $staff.decided_by %}"}
+      },
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Next": "Done"
+    },
+    "Done": {"Type": "Succeed"}
+  }
+}
