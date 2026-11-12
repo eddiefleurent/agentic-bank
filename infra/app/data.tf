@@ -42,7 +42,11 @@ data "aws_iam_policy_document" "data_reader_trust" {
       type = "AWS"
       # The account principal lets an admin run proofs/iam_session_policy.py with the same session
       # policy. Simplified: a bank would trust a dedicated break-glass role here, not the account.
-      identifiers = [aws_iam_role.lambda["tools"].arn, "arn:aws:iam::${local.account}:root"]
+      # The investigator Runtime (investigator.tf) joins only when investigator_enabled.
+      identifiers = concat(
+        [aws_iam_role.lambda["tools"].arn, "arn:aws:iam::${local.account}:root"],
+        aws_iam_role.investigator[*].arn,
+      )
     }
   }
 }

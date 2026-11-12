@@ -13,3 +13,4 @@ Short ADRs: the final decision and its trade-off, not the journey.
 | 7 | [Dispute review: code facts, model judgment, grounding, code decides](0007-dispute-review.md) | accepted |
 | 8 | [Exactly-once settlement and atomic refund limits](0008-exactly-once-settlement.md) | accepted |
 | 9 | [PII tokenization of the customer's narrative](0009-pii-tokenization.md) | accepted |
+| 10 | [Dispute investigator: agents as tools, bounded, advice only](0010-dispute-investigator-agents-as-tools.md) | proposed, not deployed |
