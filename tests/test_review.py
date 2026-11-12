@@ -1,5 +1,9 @@
 import json
 
+import pytest
+from botocore.exceptions import ClientError
+
+from agentic_bank.disputes import review as review_module
 from agentic_bank.disputes.review import parse_review, run_review
 
 IDS = ["C1", "C4"]
@@ -10,7 +14,7 @@ def good(fields=("order.delivery",)):
         {"id": i, "score": 1, "rationale": "The order shows no shipment.", "fields": list(fields)}
         for i in IDS
     ]
-    return json.dumps({"criteria": crit, "summary": "Not shipped."})
+    return json.dumps({"criteria": crit, "flags": [], "summary": "Not shipped."})
 
 
 class Bedrock:
@@ -69,3 +73,41 @@ def test_review_refuses_non_integer_scores():
         data = json.loads(good())
         data["criteria"][0]["score"] = score
         assert parse_review(json.dumps(data), IDS) is None
+
+
+def test_parse_accepts_tool_input_and_refuses_unknown_or_repeated_flags():
+    data = json.loads(good())
+    assert parse_review(dict(data, flags=["concedes_charge"]), IDS) is not None
+    assert parse_review(dict(data, flags=["approve_refund"]), IDS) is None
+    assert parse_review(dict(data, flags=["concedes_charge", "concedes_charge"]), IDS) is None
+    del data["flags"]
+    assert parse_review(data, IDS) is None  # flags are required, even when empty
+
+
+def test_forced_tool_answer_is_used_and_a_rejected_tool_choice_falls_back_to_any():
+    answer = json.loads(good())
+    choices = []
+
+    class Picky(Bedrock):
+        def converse(self, **kwargs):
+            choice = kwargs["toolConfig"]["toolChoice"]
+            choices.append(next(iter(choice)))
+            if "tool" in choice:
+                error = {"Error": {"Code": "ValidationException", "Message": "toolChoice tool"}}
+                raise ClientError(error, "Converse")
+            tool_use = {"toolUse": {"toolUseId": "t1", "name": "submit_review", "input": answer}}
+            return {"output": {"message": {"content": [tool_use]}}}
+
+    review_module._choice_for.pop("picky", None)
+    assert run_review(Picky([]), "picky", "g", "1", CASE_FILE).failure is None
+    assert run_review(Picky([]), "picky", "g", "1", CASE_FILE).failure is None
+    assert choices == ["tool", "any", "any"]  # the accepted choice is remembered per model
+
+
+def test_other_bedrock_errors_are_not_swallowed():
+    class Down(Bedrock):
+        def converse(self, **_):
+            raise ClientError({"Error": {"Code": "ThrottlingException"}}, "Converse")
+
+    with pytest.raises(ClientError):
+        run_review(Down([]), "m", "g", "1", CASE_FILE)
