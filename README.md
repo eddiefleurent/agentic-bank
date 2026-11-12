@@ -1,5 +1,7 @@
 # Agentic Bank
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/eddiefleurent/agentic-bank)
+
 **Banking where customers already are: in their AI agent.**
 
 Customers already run errands through personal agents like Claude, ChatGPT, OpenClaw, Muse and
@@ -110,6 +112,7 @@ PII KMS key); a day of proof runs stays under $0.20. Step by step, with proofs, 
 - [Deploy and prove](docs/deploy.md): bootstrap, pipeline, proofs, teardown, cost
 - [Decision records](docs/decisions/README.md): nine short ADRs
 - [Sequence diagrams](docs/diagrams/): read path, transfer, dispute, analyst round
+- [Ask DeepWiki](https://deepwiki.com/eddiefleurent/agentic-bank): a generated wiki of this repo you can ask questions
 
 This is a reference build on synthetic data, not a production bank; see the
 [known limits](docs/architecture.md#known-limits-lean-build) and
