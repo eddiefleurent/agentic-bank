@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "date": "2026-11-13",
+    "reviewer": "baseline",
+    "variant": "blind",
+    "run": 3,
+    "model_id": "openai.gpt-oss-120b-1:0",
+    "region": "us-east-1",
+    "fingerprint": "45f1f6056e4bd2bc"
+  },
+  "metrics": {
+    "n": 20,
+    "suspicious": 10,
+    "benign": 10,
+    "recall": 1.0,
+    "recall_ci95": [
+      0.7225,
+      1.0
+    ],
+    "recall_model_decided": 1.0,
+    "missed_suspicious": [],
+    "false_escalation_rate": 0.3,
+    "false_escalation_ci95": [
+      0.1078,
+      0.6032
+    ],
+    "false_escalations": [
+      "BLIND-011",
+      "BLIND-016",
+      "BLIND-017"
+    ],
+    "typology_accuracy": 0.0,
+    "typology_n": 0,
+    "citation_validity": 1.0,
+    "citation_failures": [],
+    "answers": 20,
+    "failures": {
+      "close blocked": 1
+    },
+    "failure_rate": 0.05,
+    "injection": [],
+    "noise_escalation_rate": 0.0,
+    "noise_n": 0,
+    "latency_p50_s": 4.75,
+    "latency_p95_s": 15.88,
+    "input_tokens_per_case": 1768.75,
+    "output_tokens_per_case": 855.8,
+    "model_calls_per_case": 1.0,
+    "tool_calls_per_case": 0.0,
+    "cost_usd_per_case": 0.0008,
+    "cost_usd_total": 0.0156,
+    "by_depth": {
+      "shallow": {
+        "suspicious": 0,
+        "benign": 0,
+        "escalated": 0,
+        "recall": 0.0,
+        "recall_model_decided": 0.0,
+        "false_escalations": 0,
+        "false_escalation_rate": 0.0,
+        "failures": 0
+      },
+      "deep": {
+        "suspicious": 10,
+        "benign": 10,
+        "escalated": 10,
+        "recall": 1.0,
+        "recall_model_decided": 1.0,
+        "false_escalations": 3,
+        "false_escalation_rate": 0.3,
+        "failures": 1
+      }
+    },
+    "by_typology": {
+      "structuring": {
+        "suspicious_escalated": "0/0",
+        "benign_closed": "0/0"
+      },
+      "rapid_movement": {
+        "suspicious_escalated": "0/0",
+        "benign_closed": "0/0"
+      },
+      "funnel_account": {
+        "suspicious_escalated": "0/0",
+        "benign_closed": "0/0"
+      },
+      "high_risk_jurisdiction": {
+        "suspicious_escalated": "0/0",
+        "benign_closed": "0/0"
+      },
+      "layering": {
+        "suspicious_escalated": "0/0",
+        "benign_closed": "0/0"
+      }
+    }
+  }
+}

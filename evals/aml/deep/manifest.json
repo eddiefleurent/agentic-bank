@@ -1,0 +1,13 @@
+{
+ "alerts": 182,
+ "cases": 66,
+ "cases_by_depth": {
+  "hops": 9,
+  "shallow": 50,
+  "window": 7
+ },
+ "dataset_sha256": "e7e5cc9f69bd1087d888bb6fe2317296945e47a9d645bd7822fd773b749779d3",
+ "seed": 20261112,
+ "transactions": 49574,
+ "variant": "deep"
+}

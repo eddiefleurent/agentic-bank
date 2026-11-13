@@ -1,0 +1,9 @@
+{
+ "alerts": 157,
+ "cases": 20,
+ "dataset_sha256": "e73322b48b679791f6361f57845e2ee29664785cd8217b8fc80fe86127fbd59d",
+ "ext_alerts": 5,
+ "seed": 20261113,
+ "transactions": 49863,
+ "variant": "blind"
+}

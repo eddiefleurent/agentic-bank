@@ -1,0 +1,17 @@
+{
+ "alerts": 114,
+ "alerts_by_rule": {
+  "R1": 15,
+  "R2": 39,
+  "R3": 10,
+  "R4": 27,
+  "R5": 23
+ },
+ "cases_benign": 25,
+ "cases_suspicious": 25,
+ "counterparties": 500,
+ "customers": 200,
+ "dataset_sha256": "5cd4d6109245d60015f58dec7d395712e696798baeac59b8f8af079dcfbb16bd",
+ "seed": 20261112,
+ "transactions": 49675
+}

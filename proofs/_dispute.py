@@ -12,7 +12,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
@@ -71,7 +71,7 @@ def require_fresh(customer: str, txns: list[str]) -> None:
 
 
 @contextmanager
-def self_cleaning(start: bool = True, end: bool = True) -> Iterator[None]:
+def self_cleaning(start: bool = True, end: bool = True) -> Generator[None]:
     """Reset the dispute fixtures before the proof and again after it, even if it fails."""
     from _cleanup import main as cleanup  # _cleanup imports this module: import late
 
