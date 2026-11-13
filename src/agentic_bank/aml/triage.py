@@ -328,7 +328,8 @@ def log(event: str, run: TriageRun) -> None:
 
 def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
     """The reviewer by name (env or flag AML_REVIEWER): `baseline` or `agents` (both read a
-    snapshot), or `agents-graph` (explores the whole dataset; `world` = (dataset, alerts))."""
+    snapshot), `agents-graph` (explores the whole dataset; `world` = (dataset, alerts)) or
+    `two_stage` (baseline first; graph agents only on a close; `aml/two_stage.py`)."""
     if name == "baseline":
         return run_baseline
     if name == "heuristic":
@@ -337,6 +338,13 @@ def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
         from agentic_bank.aml.agents import run_agents  # Strands: optional dependency group
 
         return run_agents
+    if name == "two_stage":
+        from agentic_bank.aml.agents import graph_reviewer
+        from agentic_bank.aml.two_stage import two_stage
+
+        if world is None:
+            raise ValueError("two_stage needs the dataset and alerts")
+        return two_stage(run_baseline, graph_reviewer(*world))
     if name == "agents-graph":
         from agentic_bank.aml.agents import graph_reviewer
 
@@ -344,5 +352,6 @@ def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
             raise ValueError("agents-graph needs the dataset and alerts")
         return graph_reviewer(*world)
     raise ValueError(
-        f"unknown AML reviewer {name!r}; expected heuristic, baseline, agents or agents-graph"
+        f"unknown AML reviewer {name!r}; expected heuristic, baseline, agents, agents-graph "
+        "or two_stage"
     )

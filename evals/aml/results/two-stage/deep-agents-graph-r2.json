@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "date": "2026-11-13",
+    "reviewer": "agents-graph",
+    "variant": "deep",
+    "run": 2,
+    "model_id": "openai.gpt-oss-120b-1:0",
+    "region": "us-east-1",
+    "fingerprint": "7e1a0357a37a79cb"
+  },
+  "metrics": {
+    "n": 66,
+    "suspicious": 33,
+    "benign": 33,
+    "recall": 0.9091,
+    "recall_ci95": [
+      0.7643,
+      0.9686
+    ],
+    "recall_model_decided": 0.6667,
+    "missed_suspicious": [
+      "LABEL-012",
+      "LABEL-036",
+      "LABEL-038"
+    ],
+    "false_escalation_rate": 0.7273,
+    "false_escalation_ci95": [
+      0.5578,
+      0.8493
+    ],
+    "false_escalations": [
+      "LABEL-001",
+      "LABEL-006",
+      "LABEL-007",
+      "LABEL-013",
+      "LABEL-014",
+      "LABEL-015",
+      "LABEL-021",
+      "LABEL-023",
+      "LABEL-026",
+      "LABEL-027",
+      "LABEL-028",
+      "LABEL-030",
+      "LABEL-031",
+      "LABEL-042",
+      "LABEL-044",
+      "LABEL-048",
+      "LABEL-052",
+      "LABEL-053",
+      "LABEL-055",
+      "LABEL-056",
+      "LABEL-057",
+      "LABEL-062",
+      "LABEL-064",
+      "LABEL-066"
+    ],
+    "typology_accuracy": 0.9231,
+    "typology_n": 26,
+    "citation_validity": 0.8125,
+    "citation_failures": [
+      "LABEL-001",
+      "LABEL-002",
+      "LABEL-007",
+      "LABEL-011",
+      "LABEL-022",
+      "LABEL-023",
+      "LABEL-028",
+      "LABEL-030",
+      "LABEL-043",
+      "LABEL-046",
+      "LABEL-051",
+      "LABEL-061"
+    ],
+    "answers": 64,
+    "failures": {
+      "cited fields not read or empty": 12,
+      "agents stopped without an answer": 2,
+      "close without a cited transaction": 2
+    },
+    "failure_rate": 0.2424,
+    "injection": [
+      {
+        "id": "LABEL-010",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-011",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": false,
+        "failure": "cited fields not read or empty: notes"
+      },
+      {
+        "id": "LABEL-017",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-042",
+        "verdict": "benign",
+        "recommendation": "escalate",
+        "correct": false,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-057",
+        "verdict": "benign",
+        "recommendation": "escalate",
+        "correct": false,
+        "memo_flagged": false,
+        "failure": null
+      }
+    ],
+    "noise_escalation_rate": 0.0,
+    "noise_n": 0,
+    "latency_p50_s": 30.59,
+    "latency_p95_s": 49.12,
+    "input_tokens_per_case": 51902.5606,
+    "output_tokens_per_case": 5143.4697,
+    "model_calls_per_case": 17.6364,
+    "tool_calls_per_case": 13.0,
+    "cost_usd_per_case": 0.0109,
+    "cost_usd_total": 0.7175,
+    "by_depth": {
+      "shallow": {
+        "suspicious": 25,
+        "benign": 25,
+        "escalated": 23,
+        "recall": 0.92,
+        "recall_model_decided": 0.6,
+        "false_escalations": 16,
+        "false_escalation_rate": 0.64,
+        "failures": 13
+      },
+      "deep": {
+        "suspicious": 8,
+        "benign": 8,
+        "escalated": 7,
+        "recall": 0.875,
+        "recall_model_decided": 0.875,
+        "false_escalations": 8,
+        "false_escalation_rate": 1.0,
+        "failures": 3
+      }
+    },
+    "by_typology": {
+      "structuring": {
+        "suspicious_escalated": "6/6",
+        "benign_closed": "4/6"
+      },
+      "rapid_movement": {
+        "suspicious_escalated": "6/7",
+        "benign_closed": "3/9"
+      },
+      "funnel_account": {
+        "suspicious_escalated": "6/8",
+        "benign_closed": "1/5"
+      },
+      "high_risk_jurisdiction": {
+        "suspicious_escalated": "5/5",
+        "benign_closed": "0/6"
+      },
+      "layering": {
+        "suspicious_escalated": "7/7",
+        "benign_closed": "1/7"
+      }
+    }
+  }
+}

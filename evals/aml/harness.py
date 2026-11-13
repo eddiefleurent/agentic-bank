@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agentic_bank.aml import data, deep, rules, snapshot, triage
+from agentic_bank.aml import blind, data, deep, rules, snapshot, triage
 from agentic_bank.aml.case_tools import txn_ids
 from agentic_bank.aml.rules import Alert
 from evals.disputes.harness import percentile, rate, shorten, table, wilson
@@ -37,7 +37,12 @@ from evals.disputes.harness import percentile, rate, shorten, table, wilson
 Reviewer = Callable[[Any, str, dict[str, Any]], triage.TriageRun]
 
 HERE = Path(__file__).parent
-LABELS = {"base": HERE / "labels.json", "deep": HERE / "deep" / "labels.json"}
+LABELS = {
+    "base": HERE / "labels.json",
+    "deep": HERE / "deep" / "labels.json",
+    "blind": HERE / "blind" / "cases.json",
+}
+NO_TYPOLOGY = "n/a"  # blind cases carry free-text typologies, so typology accuracy is not scored
 GRAPH_REVIEWERS = {"agents-graph"}
 RULE_OF = {
     "structuring": "R1",
@@ -90,6 +95,24 @@ def pick_alert(case: dict[str, Any], alerts: list[Alert]) -> Alert:
 def load_cases(
     noise: int = 0, variant: str = "base"
 ) -> tuple[list[EvalCase], data.Dataset, list[Alert]]:
+    if variant == "blind":
+        ds, alerts, blind_labels, _ = blind.build()
+        return (
+            [
+                EvalCase(
+                    b.label_id,
+                    b.verdict,
+                    NO_TYPOLOGY,
+                    blind.pick_alert(alerts, b.alerted_customer_id),
+                    [],
+                    "blind",
+                    b.decisive_txn_ids,
+                )
+                for b in blind_labels
+            ],
+            ds,
+            alerts,
+        )
     ds, labels = deep.generate() if variant == "deep" else data.generate()
     alerts = rules.run_rules(ds)
     cases = [
@@ -114,6 +137,21 @@ def cost_usd(model_id: str, tokens_in: int, tokens_out: int) -> float:
     return (tokens_in * price_in + tokens_out * price_out) / 1e6
 
 
+def stage_fields(stages: dict[str, Any], model_id: str) -> dict[str, Any]:
+    """Two-stage only: which stage decided, and the cost and latency of each stage."""
+    if not stages:
+        return {}
+    out: dict[str, Any] = {"decided_by": stages["decided_by"]}
+    for name in ("stage1", "stage2"):
+        st = stages.get(name)
+        out[f"{name}_cost_usd"] = (
+            round(cost_usd(model_id, st["input_tokens"], st["output_tokens"]), 6) if st else 0.0
+        )
+        out[f"{name}_latency_s"] = st["seconds"] if st else 0.0
+    out["new_evidence_ids"] = stages.get("new_evidence_ids", [])
+    return out
+
+
 def evaluate_case(
     case: EvalCase,
     reviewer: Reviewer,
@@ -136,7 +174,9 @@ def evaluate_case(
     tokens_in, tokens_out = run.usage.get("inputTokens", 0), run.usage.get("outputTokens", 0)
     decisive = set(case.decisive_txn_ids)
     read = set(run.audit.get("read_ids", []))
+    stages = run.audit.get("two_stage") or {}
     return {
+        **stage_fields(stages, model_id),
         "id": case.id,
         "alert_id": case.alert.alert_id,
         "rule_id": case.alert.rule_id,
@@ -220,7 +260,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     escalated = [r for r in sus if r["recommendation"] == "escalate"]
     decided = [r for r in escalated if r["failure"] is None]
     false_esc = [r for r in ben if r["recommendation"] == "escalate"]
-    typed = [r for r in sus if r["predicted_typology"] is not None]
+    typed = [r for r in sus if r["predicted_typology"] is not None and r["typology"] != NO_TYPOLOGY]
     answered = [
         r
         for r in rows
@@ -289,7 +329,11 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-MANIFESTS = {"base": HERE / "manifest.json", "deep": HERE / "deep" / "manifest.json"}
+MANIFESTS = {
+    "base": HERE / "manifest.json",
+    "deep": HERE / "deep" / "manifest.json",
+    "blind": HERE / "blind" / "manifest.json",
+}
 
 
 def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
@@ -297,9 +341,9 @@ def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
     module on the path (prompts, schemas, checks, bounds, tools and their docstrings, snapshot
     bounds, graph paging), the labels and the dataset hash in the manifest. A result whose
     fingerprint differs is about an older system."""
-    from agentic_bank.aml import agents, case_tools, graph_source  # Strands: investigator group
+    from agentic_bank.aml import agents, case_tools, graph_source, two_stage  # Strands group
 
-    modules = [triage, agents, case_tools, graph_source, snapshot, rules]
+    modules = [triage, agents, case_tools, graph_source, snapshot, rules, two_stage, blind]
     parts = [
         reviewer,
         model_id,
@@ -372,9 +416,16 @@ def compare_markdown(results: dict[str, list[dict[str, Any]]]) -> str:
     """One table: a column per reviewer, mean (min-max) over its repeated runs."""
     agg = {name: aggregate([r["metrics"] for r in runs]) for name, runs in results.items()}
     header = ["Metric", *(f"{name} ({len(runs)} runs)" for name, runs in results.items())]
+    typed = {n: any(r["metrics"]["typology_n"] for r in runs) for n, runs in results.items()}
+
+    def cell(name: str, key: str, kind: str) -> str:
+        if key == "typology_accuracy" and not typed[name]:
+            return "n/a"
+        return fmt(agg[name][key], kind)
+
     return table(
         header,
-        [[label, *(fmt(agg[n][key], kind) for n in results)] for label, key, kind in COMPARE_ROWS],
+        [[label, *(cell(n, key, kind) for n in results)] for label, key, kind in COMPARE_ROWS],
     )
 
 
@@ -408,7 +459,7 @@ def markdown(result: dict[str, Any]) -> str:
                 ],
                 [
                     f"Typology accuracy (suspicious, n={m['typology_n']})",
-                    pct(m["typology_accuracy"]),
+                    pct(m["typology_accuracy"]) if m["typology_n"] else "n/a",
                 ],
                 [f"Citation validity (answers, n={m['answers']})", pct(m["citation_validity"])],
                 ["Failures (to escalate)", f"{pct(m['failure_rate'])} {m['failures'] or ''}"],

@@ -41,10 +41,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
         "--reviewer",
-        choices=("heuristic", "baseline", "agents", "agents-graph"),
+        choices=("heuristic", "baseline", "agents", "agents-graph", "two_stage"),
         default="baseline",
     )
-    parser.add_argument("--variant", choices=("base", "deep"), default="base")
+    parser.add_argument("--variant", choices=("base", "deep", "blind"), default="base")
     parser.add_argument("--model-id", default=MODEL_ID)
     parser.add_argument("--region", default=REGION)
     parser.add_argument("--noise", type=int, default=0, help="also run N unlabelled noise alerts")

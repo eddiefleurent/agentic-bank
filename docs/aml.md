@@ -1,6 +1,6 @@
 # AML alert triage
 
-> **Status: slices 1, 2 and 2b.** Data (a base and a "deep" variant), rules, the case snapshot,
+> **Status: slices 1, 2, 2b and the two-stage test.** Data (a base and a "deep" variant), rules, the case snapshot,
 > three reviewers (one model call; a Strands agent team on the snapshot; the same team exploring the
 > whole transaction graph) and an eval harness exist. Measured locally against Bedrock (model calls only,
 > 2026-11-12). No infrastructure yet. Everything is synthetic and fictional.
@@ -394,3 +394,70 @@ worth it depends on how often real alerts look like the deep cases, which this d
   would cut failures but is not what was measured.
 - Model spend for this re-run: about $4.31 for the 9 runs (heuristic free), plus about $0.05 of
   smoke runs. The first slice 2b run cost about $4.45.
+
+## Two-stage and the blind test
+
+The prediction was written and committed first (`evals/aml/blind/PREDICTION.md`, commit 75b9ccb).
+Full numbers: `evals/aml/blind/RESULTS.md`. Raw runs: `evals/aml/results/two-stage/`.
+
+### What was built
+
+| Piece | File |
+| --- | --- |
+| Two-stage reviewer, `select("two_stage")` | `src/agentic_bank/aml/two_stage.py` |
+| Blind variant loader (imports `evals/aml/blind/cases.json`, never edits it) | `src/agentic_bank/aml/blind.py` |
+| Harness: `--variant blind`, `--reviewer two_stage`, per-stage cost and latency | `evals/aml/harness.py` |
+| Tests (no AWS, scripted outputs) | `tests/test_aml_two_stage.py` |
+
+**Two-stage rule.** The single call runs first. If it escalates, or fails in any way, the case
+escalates and stage 2 never runs. If it closes, the graph agents explore from the alert alone. The
+result is escalate only if the agents escalate AND cite at least one transaction id they actually
+read (`GraphSource` `read_ids`) that is not in the single call's evidence pack. Otherwise the close
+stands and the agents' advice is recorded for the analyst. Code checks the rule; the model does not
+decide it. Each case records which stage decided, and the cost and latency of both stages.
+
+**Stage-2 failure choice.** If the agents fail during stage 2, the close stands and is flagged
+"stage-2 failed" in `advice["two_stage"]`. v1 is human-only, so an analyst sees every close anyway.
+A failed second look is missing information, not evidence, so it must not invent an escalation.
+The analyst must still see the flag. A bank that auto-closes would choose the opposite: fail to
+escalate.
+
+**Blind import.** The 20 cases (written by a different model from public typologies) get fresh
+customer and counterparty ids in a seeded shuffle, so no id carries the label. Day and hour become
+timestamps in the existing 90-day window. The cases are added to the base dataset, so the graph
+agents explore a realistic store. The existing rules run. Where an alerted customer raised no
+alert, one synthetic alert with `rule_id="EXT"` (an alert from another monitoring system) is
+created: 5 of the 20 cases needed this. Typologies are free text, so typology accuracy is n/a.
+Labels have `depth="blind"`. The model never sees labels, summaries or `decisive_evidence`; a test
+checks it.
+
+### Results against the prediction
+
+| Set | Measure | Prediction | Actual | Verdict |
+| --- | --- | --- | --- | --- |
+| Deep | Recall, 8 deep suspicious | two-stage 90% or more | 62.5% | Not met |
+| Deep | False escalations, 25 shallow benign | 40% or less | 37.3% (single call 34.7%) | Met |
+| Blind | Recall, 10 suspicious | at least single call, gain at most 10 points | 100% against 100% | Met |
+| Blind | False escalations, 10 benign | at most single call + 10 points | 26.7% against 26.7% | Met |
+
+**Kill rule.** It fires only if two-stage gains nothing on the blind set AND adds more than 10
+points of false escalations. It gained nothing (0 points) and added 0 points. It does not fire.
+
+### Verdict
+
+Two-stage is not killed, and it is not shown to help.
+
+- On the blind set the single call already escalated all 10 suspicious cases every run. Stage 2
+  had nothing to fix, so the set cannot show a gain.
+- On the deep cases the headline prediction failed: 62.5% recall against the 90% predicted. The
+  single call got 58% and the graph agents alone 92%. Stage 2 rescued 1 of 10 closed deep
+  suspicious case-runs. In 5 more the agents escalated but cited no new transaction they had read,
+  so the rule kept the close. In 2 stage 2 failed.
+- The new-evidence rule did what it was built for on false escalations (37% on shallow benign,
+  against 57% for the graph agents alone). The price is that it blocks correct escalations too.
+- Cost: stage 2 ran on about a third of cases. Two-stage cost $0.0064 per case on the deep variant
+  against $0.0025 for the single call, and $0.0039 against $0.0008 on the blind set.
+- Drift: the single call's deep recall was 79% in the 2b run and 58% now, on the same cases and
+  logic. Gaps of a few points between reviewers are inside that drift.
+
+Spend for the kept runs: about $4.81.
