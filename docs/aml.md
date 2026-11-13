@@ -1,7 +1,7 @@
 # AML alert triage
 
-> **Status: slices 1, 2, 2b, two rounds of the two-stage test, and slice 3 (on AWS) built to a
-> clean `terraform plan`, not yet applied.** Data (a base and a "deep" variant), rules, the case
+> **Status: slices 1, 2, 2b, two rounds of the two-stage test, and slice 3 done. Slice 3 is
+> applied and AWS-verified (2026-11-13, `proofs/aml_triage.py`: all checks pass).** Data (a base and a "deep" variant), rules, the case
 > snapshot, three reviewers (one model call; a Strands agent team on the snapshot; the same team
 > exploring the whole transaction graph) and an eval harness exist. Slices 1-2 were measured locally
 > against Bedrock (model calls only, 2026-11-12). Slice 3 deploys the one-call baseline behind Step
@@ -504,8 +504,9 @@ of shallow false escalations. Spend: about $2.6 including a discarded partial ru
 
 ## Slice 3: the v1 reviewer on AWS
 
-> **Built to a clean `terraform plan` (2026-11-13). Not applied, not AWS-verified.** The proof is
-> `proofs/aml_triage.py`; run it after the apply.
+> **Applied and AWS-verified 2026-11-13.** `proofs/aml_triage.py` passed: a suspicious alert
+> escalated, a benign one queued for a person (not closed), and the reviewer got AccessDenied on
+> another case, a Scan and a write. The deploy from main then planned "No changes".
 
 ![One AML alert on AWS](diagrams/06-aml-triage.png)
 
