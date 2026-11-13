@@ -55,11 +55,13 @@ def scoped_session(
     table_arns: str | list[str],
     actions: list[str],
     attributes: list[str] | None = None,
+    session_name: str | None = None,
 ) -> boto3.Session:
-    """A session whose credentials can do `actions` on `customer`'s partition only."""
+    """A session whose credentials can do `actions` on `customer`'s partition only.
+    `session_name` is needed when the partition key holds characters STS refuses (such as #)."""
     creds = boto3.client("sts").assume_role(
         RoleArn=os.environ[role_env],
-        RoleSessionName=f"c-{customer}",
+        RoleSessionName=session_name or f"c-{customer}",
         Policy=session_policy(table_arns, customer, actions, attributes),
         DurationSeconds=900,
     )["Credentials"]

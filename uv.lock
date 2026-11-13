@@ -8,6 +8,9 @@ version = "0.1.0"
 source = { editable = "." }
 
 [package.dev-dependencies]
+aml-lambda = [
+    { name = "pydantic" },
+]
 dev = [
     { name = "boto3" },
     { name = "opentelemetry-sdk" },
@@ -24,6 +27,7 @@ investigator = [
 [package.metadata]
 
 [package.metadata.requires-dev]
+aml-lambda = [{ name = "pydantic", specifier = ">=2" }]
 dev = [
     { name = "boto3", specifier = ">=1.44.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.2" },

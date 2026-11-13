@@ -1,0 +1,39 @@
+@startuml
+' Level 3 - one AML alert on AWS (slice 3, v1 human-only): code alerts, a model recommends, code
+' checks, a person decides. Render: plantuml-new -tpng 06-aml-triage.puml
+'   1   open (admin or proof; a bank: the rules batch): seeded bank -> rules -> case snapshot.
+'   2   ~300 PutItem rows into partition CASE#<alert_id> of the data table. The aml role may write
+'       only CASE#A-* partitions and only the listed attributes (LeadingKeys + Attributes conditions).
+'   3   StartExecution with {alert_id} only: no case data in the workflow input.
+'   4-5 Review: the aml-review role has no table rights. It assumes the data-reader role with a
+'       session policy pinning LeadingKeys to CASE#<alert_id>: another case, a Scan or a write is
+'       AccessDenied from AWS. Memos arrive renamed memo_untrusted.
+'   6   One gpt-oss Converse call over the whole bounded snapshot (the eval winner).
+'   7   Check (plain code): reads the case again itself; cited ids must be in the case, cited KYC
+'       fields non-empty, a flagged instruction memo blocks close. Any failure -> escalate.
+'   8   Record: RECOMMENDATION row, analyst_queue = "aml", status awaiting_analyst. The end.
+'   Planned (dashed gray): an analyst screen for the AML queue. Nothing closes an alert today.
+hide footbox
+skinparam ArrowColor #545B64
+skinparam SequenceLifeLineBorderColor #C9CED6
+autonumber
+
+participant "Admin / proof" as P
+participant "aml Lambda\n(rules, check, record)" as W
+participant "DynamoDB\nCASE#<alert_id>" as D
+participant "Step Functions" as S
+participant "aml-review Lambda" as R
+participant "Bedrock\ngpt-oss-120b" as M
+participant "Analyst\nplanned" as A #EEEEEE
+
+P -> W : open(alert_id)
+W -> D : Put case rows
+W -> S : StartExecution
+S -> R : Review
+R -> D : Query own case only
+R -> M : one Converse call
+S -> W : Check (code)
+W -> D : Put RECOMMENDATION (queue)
+autonumber stop
+A -[#999999]-> D : <color:#777777>planned: read queue, decide</color>
+@enduml

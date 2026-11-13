@@ -21,6 +21,10 @@ dev = [
     "ruff",
     "ty",
 ]
+# What the AML Lambdas need beyond the Lambda runtime (scripts/build_aml_lambda.sh vendors it).
+aml-lambda = [
+    "pydantic>=2",
+]
 investigator = [
     "bedrock-agentcore>=1.26.0",
     "pydantic>=2",

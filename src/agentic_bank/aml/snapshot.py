@@ -19,6 +19,8 @@ spend rows (card spend is only counted in the summary), and no customer further 
 Memos are copied verbatim. They are untrusted text that may contain instructions.
 """
 
+import json
+import re
 from collections import Counter
 from dataclasses import asdict
 from datetime import datetime, timedelta
@@ -199,5 +201,80 @@ def to_items(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     ]
     items += [{"pk": pk, "sk": f"PRIOR#{a['alert_id']}", **a} for a in snapshot["prior_alerts"]]
     items.append({"pk": pk, "sk": "SUMMARY", **snapshot["activity_summary"]})
-    items.append({"pk": pk, "sk": "META", "window": snapshot["window"], **snapshot["limits"]})
+    items.append(
+        {
+            "pk": pk,
+            "sk": "META",
+            "schema_version": snapshot["schema_version"],
+            "window": snapshot["window"],
+            **snapshot["limits"],
+        }
+    )
     return items
+
+
+# ---------------------------------------------------------------- DynamoDB storage (slice 3)
+# The data table's keys are `customer` (partition) and `sk`. A case uses customer = CASE#<alert_id>,
+# so no new table is needed and IAM can pin a reader to one case with dynamodb:LeadingKeys.
+# Each row's fields are stored as one JSON string (`body`): exact ints, nested lists and None
+# survive without Decimal conversion, in their own key order. `seq` keeps the row order, so the
+# reviewer on AWS reads byte-for-byte the evidence pack the evals measured.
+
+ALERT_ID = re.compile(r"^A-\d{4}$")
+_KEY = ("pk", "sk")
+
+
+def case_key(alert_id: str) -> str:
+    """CASE#<alert_id>, after checking the id's shape: it goes into an IAM policy and a key."""
+    if not isinstance(alert_id, str) or not ALERT_ID.match(alert_id):
+        raise ValueError(f"bad alert id {alert_id!r}")
+    return f"CASE#{alert_id}"
+
+
+def to_ddb(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    """DynamoDB-typed items (low-level client format) for one case partition."""
+    return [
+        {
+            "customer": {"S": item["pk"]},
+            "sk": {"S": item["sk"]},
+            "seq": {"N": str(n)},
+            "body": {"S": json.dumps({k: v for k, v in item.items() if k not in _KEY})},
+        }
+        for n, item in enumerate(to_items(snapshot))
+    ]
+
+
+def from_ddb(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """The snapshot back from its items: the inverse of `to_ddb` (and of `to_items`)."""
+    rows = sorted(items, key=lambda i: int(i["seq"]["N"]))
+    if not rows:
+        raise LookupError("case not found")
+    pk = rows[0]["customer"]["S"]
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for i in rows:
+        if i["customer"]["S"] != pk:
+            raise ValueError("items from more than one case")
+        kind = i["sk"]["S"].split("#", 1)[0]
+        by_kind.setdefault(kind, []).append(json.loads(i["body"]["S"]))
+    (alert,) = by_kind["ALERT"]
+    (meta,) = by_kind["META"]
+    (summary,) = by_kind["SUMMARY"]
+    kyc_rows = by_kind["KYC"]
+    own = next(r for r in kyc_rows if r["customer_id"] == alert["customer_id"])
+    window = meta.pop("window")
+    version = meta.pop("schema_version")
+    return {
+        "schema_version": version,
+        "case_id": pk,
+        "alert": alert,
+        "window": window,
+        "customer": {"customer_id": own["customer_id"], "name": own["name"]},
+        "kyc": {k: v for k, v in own.items() if k not in ("customer_id", "name")},
+        "flagged_transactions": by_kind.get("FLAGGED", []),
+        "transactions": by_kind.get("TXN", []),
+        "linked_customers": [r for r in kyc_rows if r is not own],
+        "counterparties": by_kind.get("COUNTERPARTY", []),
+        "prior_alerts": by_kind.get("PRIOR", []),
+        "activity_summary": summary,
+        "limits": meta,
+    }

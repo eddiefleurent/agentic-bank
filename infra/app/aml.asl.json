@@ -1,0 +1,41 @@
+{
+  "Comment": "AML triage v1, human-only. One execution per alert (name = alert_id plus a random suffix). The model recommends; code checks; a person decides. No state closes an alert. Placeholders filled by templatefile: worker_arn, review_arn.",
+  "QueryLanguage": "JSONata",
+  "StartAt": "Review",
+  "TimeoutSeconds": 900,
+  "States": {
+    "Review": {
+      "Comment": "One gpt-oss call over the case, read through credentials pinned to CASE#<alert_id>. A read: retry is safe. Any failure still reaches the analyst, as escalate.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {"FunctionName": "${review_arn}", "Payload": {"alert_id": "{% $states.input.alert_id %}"}},
+      "Assign": {"alert_id": "{% $states.input.alert_id %}", "review": "{% $states.result.Payload %}"},
+      "TimeoutSeconds": 150,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Assign": {"alert_id": "{% $states.input.alert_id %}", "review": {"answer": null, "failure": "review step failed"}}, "Next": "Check"}],
+      "Next": "Check"
+    },
+    "Check": {
+      "Comment": "Plain code: cited ids exist in the case, cited KYC fields were read and are not empty, close is blocked by a flagged instruction memo. Reads the case itself. Pure: retries.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {"FunctionName": "${worker_arn}", "Payload": {"action": "check", "alert_id": "{% $alert_id %}", "review": "{% $review %}"}},
+      "Assign": {"checked": "{% $states.result.Payload %}"},
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 2, "BackoffRate": 2}],
+      "Catch": [{"ErrorEquals": ["States.ALL"], "Assign": {"checked": {"recommendation": "escalate", "failure": "check step failed", "advice": null}}, "Next": "Record"}],
+      "Next": "Record"
+    },
+    "Record": {
+      "Comment": "Writes the one RECOMMENDATION row into the analyst queue (analyst_queue = aml). Same row on a replay, so it retries. No Catch: if it fails, the execution fails and shows in the console.",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {"FunctionName": "${worker_arn}", "Payload": {"action": "record", "alert_id": "{% $alert_id %}", "checked": "{% $checked %}", "execution": "{% $states.context.Execution.Id %}"}},
+      "Output": "{% $states.result.Payload %}",
+      "TimeoutSeconds": 30,
+      "Retry": [{"ErrorEquals": ["Lambda.ServiceException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2}],
+      "Next": "Done"
+    },
+    "Done": {"Type": "Succeed"}
+  }
+}

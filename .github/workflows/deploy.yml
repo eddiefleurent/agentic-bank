@@ -11,6 +11,9 @@ on:
       - "infra/app/**"
       - "knowledge/**"
       - "src/**"
+      - "scripts/build_aml_lambda.sh"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/deploy.yml"
 
 permissions:
@@ -43,6 +46,13 @@ jobs:
         with:
           terraform_version: "1.17.1"
           terraform_wrapper: false
+      # The AML Lambdas' zip needs pydantic wheels next to src (scripts/build_aml_lambda.sh).
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.9.21"
+      - name: Build the AML Lambda folder
+        working-directory: .
+        run: scripts/build_aml_lambda.sh
       - name: Plan role (read-only)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
