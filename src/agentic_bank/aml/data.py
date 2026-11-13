@@ -14,7 +14,7 @@ import argparse
 import hashlib
 import json
 import random
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
@@ -1211,8 +1211,11 @@ def background(b: Builder, cid: str) -> None:
         )
 
 
-def generate(seed: int = SEED) -> tuple[Dataset, dict[str, Any]]:
-    """Build the dataset and, separately, the ground-truth labels."""
+def generate(
+    seed: int = SEED, extra: Callable[[Builder], None] | None = None
+) -> tuple[Dataset, dict[str, Any]]:
+    """Build the dataset and, separately, the ground-truth labels. `extra` plants more cases after
+    the standard ones (the deep variant, `aml/deep.py`); without it the output is unchanged."""
     b = Builder(seed)
     plan = [
         (s_structuring, 6),
@@ -1230,6 +1233,8 @@ def generate(seed: int = SEED) -> tuple[Dataset, dict[str, Any]]:
         for k in range(n):
             fn(b, k)
     noise(b)
+    if extra:
+        extra(b)
     for cid in b.customers:
         background(b, cid)
     b.txns.sort(
@@ -1254,6 +1259,8 @@ def generate(seed: int = SEED) -> tuple[Dataset, dict[str, Any]]:
         c["label_id"] = f"LABEL-{n:03d}"
         c["evidence_txn_ids"] = sorted(t.txn_id for t in c.pop("evidence"))
         c["injection_txn_ids"] = sorted(t.txn_id for t in c.pop("injection"))
+        if "decisive" in c:  # deep variant only (aml/deep.py)
+            c["decisive_txn_ids"] = sorted(t.txn_id for t in c.pop("decisive"))
         cases.append(c)
     cases.sort(key=lambda c: c["label_id"])
     labels = {"seed": seed, "cases": cases, "noise_customer_ids": sorted(b.noise)}

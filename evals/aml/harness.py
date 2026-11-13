@@ -8,6 +8,13 @@ The primary metric is recall on suspicious cases: escalated / 25. A missed suspi
 costly error in AML. Because every failure becomes `escalate`, recall is also shown counting only
 escalations the model actually decided, so a reviewer that fails on everything cannot look good.
 
+Two data variants: `base` (the 50 cases, slice 2) and `deep` (the same 50 regenerated, plus 16
+designed so the decisive evidence is outside the snapshot; `aml/deep.py`). Rows carry `depth`, and
+the summary breaks recall and false escalations down by shallow and deep.
+
+Reviewers `baseline` and `agents` get the snapshot (the evidence pack). `agents-graph` gets only
+`{"alert": ...}` and reads the whole dataset through its own tools.
+
 No AWS call is made here except through the `bedrock` client handed to `evaluate`.
 """
 
@@ -22,14 +29,16 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agentic_bank.aml import data, rules, snapshot, triage
+from agentic_bank.aml import data, deep, rules, snapshot, triage
+from agentic_bank.aml.case_tools import txn_ids
 from agentic_bank.aml.rules import Alert
 from evals.disputes.harness import percentile, rate, shorten, table, wilson
 
 Reviewer = Callable[[Any, str, dict[str, Any]], triage.TriageRun]
 
 HERE = Path(__file__).parent
-LABELS = HERE / "labels.json"
+LABELS = {"base": HERE / "labels.json", "deep": HERE / "deep" / "labels.json"}
+GRAPH_REVIEWERS = {"agents-graph"}
 RULE_OF = {
     "structuring": "R1",
     "rapid_movement": "R2",
@@ -52,6 +61,8 @@ class EvalCase:
     typology: str  # label typology, or "none" for noise
     alert: Alert
     injection_txn_ids: list[str] = field(default_factory=list)
+    depth: str = "shallow"  # shallow | hops | window
+    decisive_txn_ids: list[str] = field(default_factory=list)
 
 
 def pick_alert(case: dict[str, Any], alerts: list[Alert]) -> Alert:
@@ -67,6 +78,7 @@ def pick_alert(case: dict[str, Any], alerts: list[Alert]) -> Alert:
     evidence = set(case["evidence_txn_ids"])
     hits.sort(
         key=lambda a: (
+            a.customer_id != case["primary_customer_id"],
             a.rule_id != RULE_OF[case["typology"]],
             -len(set(a.txn_ids) & evidence),
             a.alert_id,
@@ -75,8 +87,10 @@ def pick_alert(case: dict[str, Any], alerts: list[Alert]) -> Alert:
     return hits[0]
 
 
-def load_cases(noise: int = 0) -> tuple[list[EvalCase], data.Dataset, list[Alert]]:
-    ds, labels = data.generate()
+def load_cases(
+    noise: int = 0, variant: str = "base"
+) -> tuple[list[EvalCase], data.Dataset, list[Alert]]:
+    ds, labels = deep.generate() if variant == "deep" else data.generate()
     alerts = rules.run_rules(ds)
     cases = [
         EvalCase(
@@ -85,6 +99,8 @@ def load_cases(noise: int = 0) -> tuple[list[EvalCase], data.Dataset, list[Alert
             c["typology"],
             pick_alert(c, alerts),
             c["injection_txn_ids"],
+            c.get("depth", "shallow"),
+            c.get("decisive_txn_ids", []),
         )
         for c in labels["cases"]
     ]
@@ -105,17 +121,21 @@ def evaluate_case(
     model_id: str,
     ds: data.Dataset,
     alerts: list[Alert],
+    graph: bool = False,
 ) -> dict[str, Any]:
     snap = snapshot.build_case_snapshot(case.alert, ds, alerts)
+    given = {"alert": snap["alert"]} if graph else snap  # graph agents start from the alert alone
     start = time.perf_counter()
     try:
-        run = reviewer(bedrock, model_id, snap)
+        run = reviewer(bedrock, model_id, given)
     except Exception as exc:  # reviewers never raise; if one does, a person reviews the alert
         run = triage.TriageRun(outcome=triage.failed(f"reviewer raised {type(exc).__name__}"))
     latency = time.perf_counter() - start
     out = run.outcome
     advice = out.advice or {}
     tokens_in, tokens_out = run.usage.get("inputTokens", 0), run.usage.get("outputTokens", 0)
+    decisive = set(case.decisive_txn_ids)
+    read = set(run.audit.get("read_ids", []))
     return {
         "id": case.id,
         "alert_id": case.alert.alert_id,
@@ -123,6 +143,11 @@ def evaluate_case(
         "verdict": case.verdict,
         "typology": case.typology,
         "injection_txn_ids": case.injection_txn_ids,
+        "depth": case.depth,
+        "decisive_in_pack": bool(decisive) and decisive <= txn_ids(snap),
+        "decisive_read": (bool(decisive) and decisive <= read) if graph else None,
+        "graph_rows_read": run.audit.get("rows_read"),
+        "graph_calls": run.audit.get("calls"),
         "recommendation": out.recommendation,
         "failure": out.failure,
         "predicted_typology": advice.get("typology"),
@@ -148,9 +173,10 @@ def evaluate(
     ds: data.Dataset,
     alerts: list[Alert],
     workers: int = 4,
+    graph: bool = False,
 ) -> list[dict[str, Any]]:
     def one(case: EvalCase) -> dict[str, Any]:
-        return evaluate_case(case, reviewer, bedrock, model_id, ds, alerts)
+        return evaluate_case(case, reviewer, bedrock, model_id, ds, alerts, graph)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(one, cases))
@@ -165,6 +191,26 @@ def share(rows: list[dict[str, Any]], typology: str, recommendation: str) -> str
     """ "k/n": of the rows with this typology, how many got this recommendation."""
     group = [r for r in rows if r["typology"] == typology]
     return f"{sum(r['recommendation'] == recommendation for r in group)}/{len(group)}"
+
+
+def core(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Recall, false escalations and failures for a subset of rows (shallow or deep)."""
+    sus = [r for r in rows if r["verdict"] == "suspicious"]
+    ben = [r for r in rows if r["verdict"] == "benign"]
+    esc = sum(r["recommendation"] == "escalate" for r in sus)
+    false_esc = sum(r["recommendation"] == "escalate" for r in ben)
+    return {
+        "suspicious": len(sus),
+        "benign": len(ben),
+        "escalated": esc,
+        "recall": rate(esc, len(sus)),
+        "recall_model_decided": rate(
+            sum(r["recommendation"] == "escalate" and r["failure"] is None for r in sus), len(sus)
+        ),
+        "false_escalations": false_esc,
+        "false_escalation_rate": rate(false_esc, len(ben)),
+        "failures": sum(r["failure"] is not None for r in rows),
+    }
 
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -229,6 +275,10 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "tool_calls_per_case": rate(sum(r["tool_calls"] for r in rows), n),
         "cost_usd_per_case": rate(sum(r["cost_usd"] for r in rows), n),
         "cost_usd_total": sum(r["cost_usd"] for r in rows),
+        "by_depth": {
+            "shallow": core([r for r in rows if r.get("depth", "shallow") == "shallow"]),
+            "deep": core([r for r in rows if r.get("depth", "shallow") != "shallow"]),
+        },
         "by_typology": {
             t: {
                 "suspicious_escalated": share(sus, t, "escalate"),
@@ -239,26 +289,96 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def fingerprint(reviewer: str, model_id: str, labels_path: Path = LABELS) -> str:
-    """Hash of everything that decides an outcome: prompts, answer schema, checks, bounds, model,
-    reviewer and the labelled data. A result whose fingerprint differs is about an older system."""
-    from agentic_bank.aml import agents  # Strands: the investigator dependency group
+def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
+    """Hash of everything that decides an outcome: prompts, answer schemas, checks, bounds, the
+    evidence-pack budget, graph paging, model, reviewer and the labelled data. A result whose
+    fingerprint differs is about an older system."""
+    from agentic_bank.aml import agents, graph_source  # Strands: the investigator group
 
     parts = [
         reviewer,
         model_id,
         triage.BASELINE_PROMPT,
-        agents.SUPERVISOR_PROMPT,
-        agents.FLOW_PROMPT,
-        agents.KYC_PROMPT,
+        triage.EVIDENCE_PACK_MAX_CHARS,
+        [asdict(agents.SNAPSHOT), asdict(agents.GRAPH)],
         triage.Triage.model_json_schema(),
+        agents.Findings.model_json_schema(),
         inspect.getsource(triage.check),
         triage.MAX_OUTPUT_TOKENS,
         asdict(agents.Bounds()),
+        [graph_source.PAGE_SIZE, graph_source.MAX_ROWS_READ],
         snapshot.SCHEMA_VERSION,
-        hashlib.sha256(labels_path.read_bytes()).hexdigest(),
+        hashlib.sha256(LABELS[variant].read_bytes()).hexdigest(),
     ]
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------- repeats
+
+
+def spread(values: list[float]) -> dict[str, float]:
+    mean = sum(values) / len(values) if values else 0.0
+    return {"mean": mean, "min": min(values, default=0.0), "max": max(values, default=0.0)}
+
+
+AGGREGATED: dict[str, Callable[[dict[str, Any]], float]] = {
+    "recall": lambda m: m["recall"],
+    "recall_model_decided": lambda m: m["recall_model_decided"],
+    "false_escalation_rate": lambda m: m["false_escalation_rate"],
+    "shallow_recall": lambda m: m["by_depth"]["shallow"]["recall"],
+    "deep_recall": lambda m: m["by_depth"]["deep"]["recall"],
+    "shallow_false_escalation_rate": lambda m: m["by_depth"]["shallow"]["false_escalation_rate"],
+    "deep_false_escalation_rate": lambda m: m["by_depth"]["deep"]["false_escalation_rate"],
+    "failure_rate": lambda m: m["failure_rate"],
+    "typology_accuracy": lambda m: m["typology_accuracy"],
+    "citation_validity": lambda m: m["citation_validity"],
+    "latency_p50_s": lambda m: m["latency_p50_s"],
+    "tokens_per_case": lambda m: m["input_tokens_per_case"] + m["output_tokens_per_case"],
+    "cost_usd_per_case": lambda m: m["cost_usd_per_case"],
+    "cost_usd_total": lambda m: m["cost_usd_total"],
+}
+
+
+def aggregate(metrics: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    """Mean, min and max of the headline metrics over repeated runs of one reviewer."""
+    return {k: spread([f(m) for m in metrics]) for k, f in AGGREGATED.items()}
+
+
+COMPARE_ROWS = [
+    ("Recall on suspicious, all", "recall", "pct"),
+    ("Recall, shallow cases", "shallow_recall", "pct"),
+    ("Recall, deep cases", "deep_recall", "pct"),
+    ("Recall, model-decided only", "recall_model_decided", "pct"),
+    ("False escalations, all benign", "false_escalation_rate", "pct"),
+    ("False escalations, shallow", "shallow_false_escalation_rate", "pct"),
+    ("False escalations, deep", "deep_false_escalation_rate", "pct"),
+    ("Failures (became escalate)", "failure_rate", "pct"),
+    ("Typology accuracy", "typology_accuracy", "pct"),
+    ("Citation validity", "citation_validity", "pct"),
+    ("Latency p50", "latency_p50_s", "s"),
+    ("Tokens per case", "tokens_per_case", "n"),
+    ("Cost per case", "cost_usd_per_case", "usd"),
+]
+
+
+def fmt(a: dict[str, float], kind: str) -> str:
+    if kind == "pct":
+        return f"{a['mean']:.0%} ({a['min']:.0%}-{a['max']:.0%})"
+    if kind == "s":
+        return f"{a['mean']:.1f} s ({a['min']:.1f}-{a['max']:.1f})"
+    if kind == "usd":
+        return f"${a['mean']:.4f}"
+    return f"{a['mean']:,.0f}"
+
+
+def compare_markdown(results: dict[str, list[dict[str, Any]]]) -> str:
+    """One table: a column per reviewer, mean (min-max) over its repeated runs."""
+    agg = {name: aggregate([r["metrics"] for r in runs]) for name, runs in results.items()}
+    header = ["Metric", *(f"{name} ({len(runs)} runs)" for name, runs in results.items())]
+    return table(
+        header,
+        [[label, *(fmt(agg[n][key], kind) for n in results)] for label, key, kind in COMPARE_ROWS],
+    )
 
 
 def pct(value: float) -> str:
@@ -270,7 +390,8 @@ def markdown(result: dict[str, Any]) -> str:
     out = [
         f"# AML triage evaluation: {meta['reviewer']}",
         "",
-        f"Run {meta['date']}, reviewer `{meta['reviewer']}`, model `{meta['model_id']}`, "
+        f"Run {meta['date']}, reviewer `{meta['reviewer']}`, variant "
+        f"`{meta.get('variant', 'base')}`, run {meta.get('run', 1)}, model `{meta['model_id']}`, "
         f"{m['n']} alerts ({m['suspicious']} suspicious, {m['benign']} benign, {m['noise_n']} "
         f"noise), fingerprint `{meta['fingerprint']}`. Generated by `python -m evals.aml`; do not "
         "edit by hand.",
@@ -323,6 +444,21 @@ def markdown(result: dict[str, Any]) -> str:
             ],
         ),
         "",
+        "## By depth",
+        "",
+        table(
+            ["Depth", "Suspicious escalated", "Benign falsely escalated", "Failures"],
+            [
+                [
+                    d,
+                    f"{c['escalated']}/{c['suspicious']}",
+                    f"{c['false_escalations']}/{c['benign']}",
+                    c["failures"],
+                ]
+                for d, c in m["by_depth"].items()
+            ],
+        ),
+        "",
         "## Prompt-injection cases",
         "",
         table(
@@ -347,6 +483,7 @@ def markdown(result: dict[str, Any]) -> str:
                 "Case",
                 "Alert",
                 "Label",
+                "Depth",
                 "Typology",
                 "Recommendation",
                 "Predicted typology",
@@ -357,6 +494,7 @@ def markdown(result: dict[str, Any]) -> str:
                     r["id"],
                     f"{r['alert_id']} {r['rule_id']}",
                     r["verdict"],
+                    r.get("depth", "shallow"),
                     r["typology"],
                     r["recommendation"],
                     r["predicted_typology"] or "-",

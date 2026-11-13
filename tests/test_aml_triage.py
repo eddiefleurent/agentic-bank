@@ -94,11 +94,17 @@ def test_budget_refuses_over_cap_and_off_allowlist():
     assert budget.calls == ["list_flagged"] and budget.refused == ["neighbours", "close_alert"]
 
 
+FINDINGS = (
+    "tools",
+    [("Findings", {"findings": [{"kind": "context", "statement": "Facts.", "txn_ids": []}]})],
+)
+
+
 def scripted(supervisor, flow=None, kyc=None, **kw):
     models = {
         "supervisor": Scripted(supervisor, **kw),
-        "flow_tracer": Scripted(flow or [("tools", [("list_flagged", {})]), ("text", "facts")]),
-        "kyc_profiler": Scripted(kyc or [("tools", [("kyc_profile", {})]), ("text", "profile")]),
+        "flow_tracer": Scripted(flow or [("tools", [("list_flagged", {})]), FINDINGS]),
+        "kyc_profiler": Scripted(kyc or [("tools", [("kyc_profile", {})]), FINDINGS]),
     }
     return models.__getitem__
 
@@ -112,7 +118,7 @@ def run(supervisor, bounds=None, **kw):
 
 
 def triage_run(s, model_for, bounds=None):
-    return agents.triage(None, "m", s, bounds=bounds or Bounds(), model_for=model_for)
+    return agents.triage_snapshot(None, "m", s, bounds=bounds or Bounds(), model_for=model_for)
 
 
 def test_agents_happy_path_is_checked_by_code():
@@ -165,8 +171,8 @@ def test_text_only_supervisor_never_closes():
 
 def test_check_accepts_a_valid_answer():
     s = snap()
-    assert triage.check(answer(s), s).failure is None
-    assert triage.check(answer(s, "close"), s).recommendation == "close"
+    assert triage.check_snapshot(answer(s), s).failure is None
+    assert triage.check_snapshot(answer(s, "close"), s).recommendation == "close"
 
 
 @pytest.mark.parametrize(
@@ -183,7 +189,7 @@ def test_check_rejects_bad_escalations(mutate, failure):
     s = snap()
     a = answer(s)
     mutate(a)
-    out = triage.check(a, s)
+    out = triage.check_snapshot(a, s)
     assert out.recommendation == "escalate" and (out.failure or "").startswith(failure)
 
 
@@ -191,7 +197,7 @@ def test_close_without_a_cited_reason_escalates():
     s = snap()
     a = answer(s, "close")
     a["mitigating_factors"] = [{"statement": "Seems fine.", "txn_ids": [], "kyc_fields": []}]
-    out = triage.check(a, s)
+    out = triage.check_snapshot(a, s)
     assert out.recommendation == "escalate" and out.failure == "close without a cited reason"
     assert (
         out.advice and out.advice["recommendation"] == "close"

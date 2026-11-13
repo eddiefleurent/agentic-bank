@@ -142,6 +142,7 @@ class TriageRun:
     stop_reason: str | None = None
     tool_calls: list[str] = field(default_factory=list)
     refused_tools: list[str] = field(default_factory=list)
+    audit: dict[str, Any] = field(default_factory=dict)  # graph mode: reads and the call log
 
 
 def failed(reason: str) -> TriageOutcome:
@@ -153,8 +154,11 @@ def cited_ids(t: Triage) -> set[str]:
     return {i for f in factors for i in f.txn_ids} | set(t.instruction_memo_txn_ids)
 
 
-def check(answer: Any, snapshot: dict[str, Any]) -> TriageOutcome:
-    """Code checks after the model. Any answer that fails becomes escalate with the reason."""
+def check(answer: Any, known_ids: set[str], kyc_keys: set[str]) -> TriageOutcome:
+    """Code checks after the model. Any answer that fails becomes escalate with the reason.
+
+    `known_ids`: the transaction ids the reviewer was shown (the snapshot's, or what the graph
+    tools returned); `kyc_keys`: the alert customer's KYC fields."""
     if not isinstance(answer, Triage):
         try:
             answer = Triage.model_validate(answer)
@@ -164,10 +168,10 @@ def check(answer: Any, snapshot: dict[str, Any]) -> TriageOutcome:
             return failed(f"invalid output: {where} {first['type']} ({exc.error_count()} errors)")
     if answer.typology not in TYPOLOGIES:  # pydantic enforces it too; this does not rely on it
         return failed(f"invalid output: typology {answer.typology!r}")
-    unknown = sorted(cited_ids(answer) - txn_ids(snapshot))
+    unknown = sorted(cited_ids(answer) - known_ids)
     if unknown:
         return failed(f"cited ids not in case: {', '.join(unknown[:5])}")
-    present = set(snapshot["kyc"]) | {"activity_summary", "prior_alerts"}
+    present = kyc_keys | {"activity_summary", "prior_alerts"}
     fields = {f for x in answer.risk_factors + answer.mitigating_factors for f in x.kyc_fields}
     if not fields <= present:
         return failed(f"cited fields not in case: {', '.join(sorted(fields - present))}")
@@ -179,6 +183,11 @@ def check(answer: Any, snapshot: dict[str, Any]) -> TriageOutcome:
     if not any(f.txn_ids or f.kyc_fields for f in answer.mitigating_factors):
         return TriageOutcome("escalate", "close without a cited reason", advice)
     return TriageOutcome("close", None, advice)
+
+
+def check_snapshot(answer: Any, snapshot: dict[str, Any]) -> TriageOutcome:
+    """`check` against what a snapshot holds."""
+    return check(answer, txn_ids(snapshot), set(snapshot["kyc"]))
 
 
 def case_text(snapshot: dict[str, Any]) -> str:
@@ -201,6 +210,10 @@ def ask(snapshot: dict[str, Any]) -> str:
 # ---------------------------------------------------------------- the one-call baseline
 
 TOOL_NAME = "submit_triage"
+# The evidence pack is the case snapshot: code picks what a single call sees (2 hops, 30 days
+# before to 7 after, at most 150 context rows). Its budget is about 15,000 tokens; the largest
+# snapshot in either variant is about 46,000 characters.
+EVIDENCE_PACK_MAX_CHARS = 60_000
 MAX_OUTPUT_TOKENS = 3000  # gpt-oss reasons before it answers; reasoning counts against this
 
 
@@ -219,6 +232,10 @@ def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> Triag
     """One model call over the whole snapshot. Never raises; every failure is escalate."""
     started = time.monotonic()
     run = TriageRun(outcome=failed("baseline did not run"))
+    text = case_text(snapshot)
+    if len(text) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never silently cut
+        run.outcome = failed("evidence pack over budget")
+        return run
     try:
         response = bedrock.converse(
             modelId=model_id,
@@ -253,7 +270,10 @@ def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> Triag
             ),
             None,
         )
-        run.outcome = check(answer, snapshot) if answer is not None else failed("no answer tool")
+        if answer is None:
+            run.outcome = failed("no answer tool")
+        else:
+            run.outcome = check_snapshot(answer, snapshot)
     except Exception as exc:  # throttling, timeouts, access: a person reviews it
         run.outcome = failed(f"baseline error: {type(exc).__name__}")
     run.seconds = round(time.monotonic() - started, 2)
@@ -275,12 +295,19 @@ def log(event: str, run: TriageRun) -> None:
     print(json.dumps(line), file=sys.stderr)
 
 
-def select(name: str) -> Any:
-    """The reviewer by name (env or flag AML_REVIEWER): `baseline` or `agents`."""
+def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
+    """The reviewer by name (env or flag AML_REVIEWER): `baseline` or `agents` (both read a
+    snapshot), or `agents-graph` (explores the whole dataset; `world` = (dataset, alerts))."""
     if name == "baseline":
         return run_baseline
     if name == "agents":
         from agentic_bank.aml.agents import run_agents  # Strands: optional dependency group
 
         return run_agents
-    raise ValueError(f"unknown AML reviewer {name!r}; expected baseline or agents")
+    if name == "agents-graph":
+        from agentic_bank.aml.agents import graph_reviewer
+
+        if world is None:
+            raise ValueError("agents-graph needs the dataset and alerts")
+        return graph_reviewer(*world)
+    raise ValueError(f"unknown AML reviewer {name!r}; expected baseline, agents or agents-graph")
