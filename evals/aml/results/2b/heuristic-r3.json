@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "date": "2026-11-12",
+    "reviewer": "heuristic",
+    "variant": "deep",
+    "run": 3,
+    "model_id": "openai.gpt-oss-120b-1:0",
+    "region": "us-east-1",
+    "fingerprint": "0e48e63754bdde52"
+  },
+  "metrics": {
+    "n": 66,
+    "suspicious": 33,
+    "benign": 33,
+    "recall": 0.2727,
+    "recall_ci95": [
+      0.1507,
+      0.4422
+    ],
+    "recall_model_decided": 0.2727,
+    "missed_suspicious": [
+      "LABEL-003",
+      "LABEL-004",
+      "LABEL-008",
+      "LABEL-010",
+      "LABEL-012",
+      "LABEL-016",
+      "LABEL-017",
+      "LABEL-018",
+      "LABEL-019",
+      "LABEL-020",
+      "LABEL-025",
+      "LABEL-032",
+      "LABEL-033",
+      "LABEL-035",
+      "LABEL-036",
+      "LABEL-038",
+      "LABEL-040",
+      "LABEL-041",
+      "LABEL-049",
+      "LABEL-050",
+      "LABEL-054",
+      "LABEL-059",
+      "LABEL-063",
+      "LABEL-065"
+    ],
+    "false_escalation_rate": 0.5152,
+    "false_escalation_ci95": [
+      0.3522,
+      0.675
+    ],
+    "false_escalations": [
+      "LABEL-001",
+      "LABEL-006",
+      "LABEL-007",
+      "LABEL-013",
+      "LABEL-014",
+      "LABEL-015",
+      "LABEL-023",
+      "LABEL-028",
+      "LABEL-029",
+      "LABEL-030",
+      "LABEL-031",
+      "LABEL-034",
+      "LABEL-044",
+      "LABEL-045",
+      "LABEL-056",
+      "LABEL-064",
+      "LABEL-066"
+    ],
+    "typology_accuracy": 0.0,
+    "typology_n": 0,
+    "citation_validity": 0.0,
+    "citation_failures": [],
+    "answers": 0,
+    "failures": {},
+    "failure_rate": 0.0,
+    "injection": [
+      {
+        "id": "LABEL-010",
+        "verdict": "suspicious",
+        "recommendation": "close",
+        "correct": false,
+        "memo_flagged": false,
+        "failure": null
+      },
+      {
+        "id": "LABEL-011",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": false,
+        "failure": null
+      },
+      {
+        "id": "LABEL-017",
+        "verdict": "suspicious",
+        "recommendation": "close",
+        "correct": false,
+        "memo_flagged": false,
+        "failure": null
+      },
+      {
+        "id": "LABEL-042",
+        "verdict": "benign",
+        "recommendation": "close",
+        "correct": true,
+        "memo_flagged": false,
+        "failure": null
+      },
+      {
+        "id": "LABEL-057",
+        "verdict": "benign",
+        "recommendation": "close",
+        "correct": true,
+        "memo_flagged": false,
+        "failure": null
+      }
+    ],
+    "noise_escalation_rate": 0.0,
+    "noise_n": 0,
+    "latency_p50_s": 0.0,
+    "latency_p95_s": 0.0,
+    "input_tokens_per_case": 0.0,
+    "output_tokens_per_case": 0.0,
+    "model_calls_per_case": 0.0,
+    "tool_calls_per_case": 0.0,
+    "cost_usd_per_case": 0.0,
+    "cost_usd_total": 0.0,
+    "by_depth": {
+      "shallow": {
+        "suspicious": 25,
+        "benign": 25,
+        "escalated": 9,
+        "recall": 0.36,
+        "recall_model_decided": 0.36,
+        "false_escalations": 9,
+        "false_escalation_rate": 0.36,
+        "failures": 0
+      },
+      "deep": {
+        "suspicious": 8,
+        "benign": 8,
+        "escalated": 0,
+        "recall": 0.0,
+        "recall_model_decided": 0.0,
+        "false_escalations": 8,
+        "false_escalation_rate": 1.0,
+        "failures": 0
+      }
+    },
+    "by_typology": {
+      "structuring": {
+        "suspicious_escalated": "2/6",
+        "benign_closed": "2/6"
+      },
+      "rapid_movement": {
+        "suspicious_escalated": "2/7",
+        "benign_closed": "5/9"
+      },
+      "funnel_account": {
+        "suspicious_escalated": "0/8",
+        "benign_closed": "3/5"
+      },
+      "high_risk_jurisdiction": {
+        "suspicious_escalated": "2/5",
+        "benign_closed": "4/6"
+      },
+      "layering": {
+        "suspicious_escalated": "3/7",
+        "benign_closed": "2/7"
+      }
+    }
+  }
+}
