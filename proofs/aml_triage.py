@@ -35,7 +35,6 @@ TABLE = "agentic-bank-data"
 FUNCTION = "agentic-bank-aml"
 ROLE = "agentic-bank-app-data-reader"
 # Both were judged right by the baseline in the slice 2 eval run (evals/aml/results/baseline.md).
-SUSPICIOUS, BENIGN = "LABEL-001", "LABEL-004"
 
 
 def denied(call: Any) -> bool:
@@ -98,8 +97,9 @@ def cleanup(ddb: Any, alert_ids: list[str]) -> None:
 
 def main() -> None:
     cases, _, _ = harness.load_cases()
-    by_label = {c.id: c for c in cases}
-    sus, ben = by_label[SUSPICIOUS], by_label[BENIGN]
+    # First suspicious and first benign case in label order (label ids carry no verdict hint).
+    sus = next(c for c in cases if c.verdict == "suspicious" and c.alert is not None)
+    ben = next(c for c in cases if c.verdict == "benign" and c.alert is not None)
     assert sus.verdict == "suspicious" and ben.verdict == "benign"
     alerts = [sus.alert.alert_id, ben.alert.alert_id]
 
