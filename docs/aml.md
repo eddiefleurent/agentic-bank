@@ -1,7 +1,8 @@
 # AML alert triage (planned)
 
-> **Status: slices 1 and 2.** Data, rules, the case snapshot, two reviewers (one model call, and a
-> Strands agent team) and an eval harness exist. Measured locally against Bedrock (model calls only,
+> **Status: slices 1, 2 and 2b.** Data (a base and a "deep" variant), rules, the case snapshot,
+> three reviewers (one model call; a Strands agent team on the snapshot; the same team exploring the
+> whole transaction graph) and an eval harness exist. Measured locally against Bedrock (model calls only,
 > 2026-11-12). No infrastructure yet. Everything is synthetic and fictional.
 
 ## Slice 1: data, rules, snapshot
@@ -234,3 +235,126 @@ good.
 - Only a one-line summary per run is logged. A bank would store every turn and tool result for
   audit.
 - Total model spend for slice 2, including smoke runs and one discarded run: about $0.65.
+
+## Slice 2b: fair rematch
+
+### Why
+
+Slice 2 favoured the single call. The snapshot had already done the investigation: 2 hops, 30
+days, at most 150 rows. The agents could only re-read what code had chosen, so their main
+advantage (going to find evidence nobody knew they would need) could not show.
+
+### What changed
+
+| Piece | File |
+| --- | --- |
+| Graph tools over the WHOLE dataset, read-only, paginated, capped, audited | `src/agentic_bank/aml/graph_source.py` |
+| Deep variant: the 50 cases plus 16 that need exploration | `src/agentic_bank/aml/deep.py`, `evals/aml/deep/labels.json`, `manifest.json` |
+| Agents: structured findings, graph mode, higher bounds | `src/agentic_bank/aml/agents.py` |
+| Harness: variants, graph mode, depth breakdown, repeats, comparison | `evals/aml/harness.py`, `evals/aml/__main__.py` |
+| Results (3 runs per reviewer) | `evals/aml/results/2b/` (`compare.md` is the table below) |
+| Tests (no AWS) | `tests/test_aml_deep.py` |
+
+**Graph mode.** `agents-graph` is handed only the alert (id, rule, customer, trigger txn ids). Its
+tools read any customer, any day of the 90, at any depth: `get_alert`, `transactions_for_party`
+(50 rows a page, date filters), `follow_money` (one hop along the money; between two customers it
+crosses to the other account), `get_transaction`, `get_party` (a customer's full KYC, notes
+included, or a counterparty's country), `neighbours`, and the KYC tools for any customer. Controls:
+every call is logged with the alert id; at most 2,000 rows per alert; card rows left out; and the
+code check accepts only transaction ids the tools actually returned. An agent can cite only what
+it read.
+
+**The baseline is unchanged.** Code builds its evidence pack: the case snapshot, with a fixed
+budget of 60,000 characters (about 15,000 tokens). Over budget it escalates; it never cuts
+silently. This is the realistic single-call design: 49,000 transactions do not fit one prompt, so
+code chooses.
+
+**Agent fixes from slice 2.** Specialists now answer with structured findings (risk, mitigating or
+context; each with transaction ids and fields) instead of prose, so a mitigating fact reaches the
+supervisor with its source. Bounds rose to 30 turns, 30 tool calls, 300,000 tokens, 4 structured
+attempts and 240 s. Both agent modes use these. The prompts are generic; they do not name any
+case.
+
+**The deep cases.** We designed these to need exploration. They test whether exploring finds what a
+fixed pack leaves out. They say nothing about how often such cases occur in a real bank.
+
+| Scenario | Count | Label | Where the decisive evidence is |
+| --- | --- | --- | --- |
+| Round chain through 4 accounts | 3 | suspicious | exit to a high-risk country, 3 hops from the alerted agency |
+| Funnel whose payers share one source | 3 | suspicious | a high-risk wire into the source account, 3 hops away |
+| "One-off house sale" repeated | 2 | suspicious | the same pattern 58 and 74 days earlier |
+| Estate money to a builder | 3 | benign | the solicitor's letter and the builder's contract, 60+ days earlier |
+| Family gift chain to a title company | 3 | benign | the grandparent's gift note, 3 hops away |
+| Wires to a notary abroad | 2 | benign | the inheritance transfer 70 days earlier |
+
+`depth` is `hops` (9) or `window` (7); the 50 standard cases are `shallow`. In one hop case
+(LABEL-061) background transfers happen to bring the decisive row within 2 hops, so it is in the
+snapshot anyway; a test allows at most one such case. The base data and its manifest are untouched,
+so slice 2 can still be reproduced (the deep variant regenerates the 50 cases with other ids).
+
+### Results
+
+Deep variant, 66 cases (25 + 8 suspicious, 25 + 8 benign), `openai.gpt-oss-120b-1:0`, 3 runs
+each, mean and (min-max). `agents` is the improved team on the snapshot; `agents-graph` is the same
+team exploring the graph.
+
+| Metric | Baseline (1 call, snapshot) | Agents, snapshot | Agents, graph |
+| --- | --- | --- | --- |
+| Recall on suspicious, all 33 | 86% (82-88%) | 92% (91-94%) | 97% (97-97%) |
+| Recall, 25 shallow | 100% | 100% | 100% |
+| Recall, 8 deep | 42% (25-50%) | 67% (62-75%) | 88% (88-88%) |
+| Recall, model-decided only | 83% (82-85%) | 92% (91-94%) | 92% (88-94%) |
+| False escalations, all 33 benign | 38% (36-42%) | 54% (48-61%) | 54% (42-67%) |
+| False escalations, 25 shallow | 19% (16-24%) | 39% (32-48%) | 40% (28-56%) |
+| False escalations, 8 deep | 100% | 100% | 96% (88-100%) |
+| Failures (became escalate) | 8% (5-11%), schema | 0% | 5% (3-8%), turn and structured-output limits |
+| Typology accuracy | 80% | 85% | 95% |
+| Citation validity | 100% | 100% | 100% |
+| Latency p50 | 5.3 s | 30.2 s | 33.8 s |
+| Tokens per case | 13,067 | 37,122 | 61,961 |
+| Cost per case | $0.0024 | $0.0078 | $0.0116 |
+
+Deep suspicious cases escalated, over 3 runs: baseline 10 of 24, agents on the snapshot 16 of 24,
+agents on the graph 21 of 24. The graph agents read the decisive rows in 30 of 48 deep runs.
+The miss they keep making (LABEL-062): they traced the chain to the high-risk exit, then closed
+anyway, reasoning that the alerted customer's own step fitted its KYC.
+
+### What won, and why
+
+**On the primary metric, exploring won.** All three caught every shallow suspicious case. On the 8
+deep suspicious cases the graph agents escalated 88%, the snapshot agents 67% and the single call
+42%. The deep cases were built for this, so this shows that exploring CAN find evidence a fixed
+pack misses. It does not show how often that matters in real alerts.
+
+**On false escalations, the single call still won, and exploring did not help.**
+
+- On shallow benign cases both agent teams escalated about twice as often as the baseline (about
+  40% against 19%). Structured findings did not fix the slice 2 problem: the team weighs "volume
+  above expected" over a documented reason more often than one call that sees everything at once.
+- On deep benign cases every reviewer escalated almost every time. The graph agents often found
+  the explanation (the estate letter, the gift note) and still escalated. Our own guidance tells
+  them to: memos are untrusted, a linked customer's note is not this customer's KYC, and when in
+  doubt escalate. With that guidance, finding an innocent explanation in history rarely leads to
+  close. This is the design working as written, not the model failing.
+
+**Cost.** The graph agents cost about 5x the baseline per case and take 6x as long, and 5% of runs
+hit a bound (turn limit or structured-output attempts) and became escalate.
+
+**Where this leaves the design.** For a bank, a missed suspicious case costs more than an extra
+escalation, so the graph agents are the better reviewer on recall, if alerts like the deep ones
+are common. A sensible production shape is both: the single call first (cheap, and the best at not
+wasting analysts' time on shallow cases), and the exploring agents for alerts the single call would
+close, as a second look before anything is closed. That is a proposal, not something measured
+here.
+
+### Caveats
+
+- 8 deep suspicious and 8 deep benign cases, 3 runs: the deep numbers are small. Ranges show
+  run-to-run spread, not confidence intervals.
+- The deep cases were designed by us to need exploration, and the agents' prompts mention that the
+  trail can be 3 or 4 accounts long and that earlier history matters. That is a fair instruction
+  for an investigator, but it is guidance the baseline does not get in its prompt.
+- The slice 2 result files were produced by the slice 2 code (commit `b6ca037`). Their
+  fingerprints no longer match the current code: `check` now takes the known ids, and the snapshot
+  agents now use structured findings.
+- Model spend for slice 2b: about $4.30 for the 9 full runs plus about $0.15 of smoke runs.

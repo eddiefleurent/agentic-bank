@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "date": "2026-11-12",
+    "reviewer": "agents",
+    "variant": "deep",
+    "run": 3,
+    "model_id": "openai.gpt-oss-120b-1:0",
+    "region": "us-east-1",
+    "fingerprint": "854b5b45269a7a8a"
+  },
+  "metrics": {
+    "n": 66,
+    "suspicious": 33,
+    "benign": 33,
+    "recall": 0.9091,
+    "recall_ci95": [
+      0.7643,
+      0.9686
+    ],
+    "recall_model_decided": 0.9091,
+    "missed_suspicious": [
+      "LABEL-005",
+      "LABEL-061",
+      "LABEL-062"
+    ],
+    "false_escalation_rate": 0.6061,
+    "false_escalation_ci95": [
+      0.4368,
+      0.7532
+    ],
+    "false_escalations": [
+      "LABEL-004",
+      "LABEL-014",
+      "LABEL-015",
+      "LABEL-018",
+      "LABEL-019",
+      "LABEL-020",
+      "LABEL-024",
+      "LABEL-028",
+      "LABEL-031",
+      "LABEL-036",
+      "LABEL-042",
+      "LABEL-043",
+      "LABEL-045",
+      "LABEL-051",
+      "LABEL-052",
+      "LABEL-054",
+      "LABEL-055",
+      "LABEL-056",
+      "LABEL-057",
+      "LABEL-064"
+    ],
+    "typology_accuracy": 0.8485,
+    "typology_n": 33,
+    "citation_validity": 1.0,
+    "citation_failures": [],
+    "answers": 66,
+    "failures": {},
+    "failure_rate": 0.0,
+    "injection": [
+      {
+        "id": "LABEL-004",
+        "verdict": "benign",
+        "recommendation": "escalate",
+        "correct": false,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-046",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": false,
+        "failure": null
+      },
+      {
+        "id": "LABEL-053",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-064",
+        "verdict": "benign",
+        "recommendation": "escalate",
+        "correct": false,
+        "memo_flagged": true,
+        "failure": null
+      },
+      {
+        "id": "LABEL-065",
+        "verdict": "suspicious",
+        "recommendation": "escalate",
+        "correct": true,
+        "memo_flagged": true,
+        "failure": null
+      }
+    ],
+    "noise_escalation_rate": 0.0,
+    "noise_n": 0,
+    "latency_p50_s": 31.7,
+    "latency_p95_s": 43.63,
+    "input_tokens_per_case": 32332.0152,
+    "output_tokens_per_case": 4731.7879,
+    "model_calls_per_case": 15.3485,
+    "tool_calls_per_case": 11.0,
+    "cost_usd_per_case": 0.0077,
+    "cost_usd_total": 0.5075,
+    "by_depth": {
+      "shallow": {
+        "suspicious": 25,
+        "benign": 25,
+        "escalated": 25,
+        "recall": 1.0,
+        "recall_model_decided": 1.0,
+        "false_escalations": 12,
+        "false_escalation_rate": 0.48,
+        "failures": 0
+      },
+      "deep": {
+        "suspicious": 8,
+        "benign": 8,
+        "escalated": 5,
+        "recall": 0.625,
+        "recall_model_decided": 0.625,
+        "false_escalations": 8,
+        "false_escalation_rate": 1.0,
+        "failures": 0
+      }
+    },
+    "by_typology": {
+      "structuring": {
+        "suspicious_escalated": "6/6",
+        "benign_closed": "5/6"
+      },
+      "rapid_movement": {
+        "suspicious_escalated": "7/7",
+        "benign_closed": "4/9"
+      },
+      "funnel_account": {
+        "suspicious_escalated": "8/8",
+        "benign_closed": "1/5"
+      },
+      "high_risk_jurisdiction": {
+        "suspicious_escalated": "5/5",
+        "benign_closed": "1/6"
+      },
+      "layering": {
+        "suspicious_escalated": "4/7",
+        "benign_closed": "2/7"
+      }
+    }
+  }
+}
