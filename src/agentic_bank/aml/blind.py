@@ -34,10 +34,10 @@ from agentic_bank.aml import data, rules
 from agentic_bank.aml.data import Counterparty, Customer, Dataset, Txn
 from agentic_bank.aml.rules import Alert
 
-CASES = Path(__file__).resolve().parents[3] / "evals" / "aml" / "blind" / "cases.json"
+BLIND_DIR = Path(__file__).resolve().parents[3] / "evals" / "aml" / "blind"
+CASES = BLIND_DIR / "cases.json"
+DEEP_CASES = BLIND_DIR / "deep_cases.json"
 SEED = 20261113
-FIRST_CUSTOMER = 201
-FIRST_COUNTERPARTY = 501
 
 
 @dataclass(frozen=True)
@@ -55,11 +55,29 @@ def load_raw(path: Path = CASES) -> list[dict[str, Any]]:
 
 
 def build(
-    path: Path = CASES, seed: int = SEED
+    path: Path = CASES,
+    seed: int = SEED,
+    base: Dataset | None = None,
+    prefix: str = "BLIND",
 ) -> tuple[Dataset, list[Alert], list[BlindLabel], int]:
-    """Return (dataset, alerts, labels, number of EXT alerts created)."""
+    """Return (dataset, alerts, labels, number of EXT alerts created).
+
+    `base` is the store the cases are embedded in (default: the standard base dataset). New
+    customer and counterparty ids continue after the highest id in `base`. Transaction ids are
+    re-assigned over the merged store; `build_merged` also returns the old-to-new id map."""
+    return build_merged(path, seed, base, prefix)[:4]
+
+
+def build_merged(
+    path: Path = CASES,
+    seed: int = SEED,
+    base: Dataset | None = None,
+    prefix: str = "BLIND",
+) -> tuple[Dataset, list[Alert], list[BlindLabel], int, dict[str, str]]:
+    """As `build`, plus a map from the base's old transaction ids to their new ids."""
     raw = load_raw(path)
-    base, _ = data.generate()
+    if base is None:
+        base, _ = data.generate()
     rng = random.Random(seed)
     order = list(range(len(raw)))
     rng.shuffle(order)  # label ids and entity ids follow this order, not the file's
@@ -67,7 +85,9 @@ def build(
     customers = dict(base.customers)
     cps = dict(base.counterparties)
     txns = list(base.transactions)
-    next_c, next_x = FIRST_CUSTOMER, FIRST_COUNTERPARTY
+    next_c = max(int(c[1:]) for c in customers) + 1
+    next_x = max(int(x[1:]) for x in cps) + 1
+    old_ids = {id(t): t.txn_id for t in base.transactions}
     new_rows: list[tuple[int, str, Txn]] = []  # (case position, case txn key, row)
     alerted: dict[int, str] = {}
 
@@ -125,6 +145,7 @@ def build(
     )
     for i, t in enumerate(txns, 1):
         t.txn_id = f"T{i:06d}"
+    id_map = {old_ids[id(t)]: t.txn_id for t in txns if id(t) in old_ids}
     ds = Dataset(customers, cps, txns)
 
     alerts = rules.run_rules(ds)
@@ -156,7 +177,7 @@ def build(
         ids_by_key = {k: r.txn_id for p, k, r in new_rows if p == n}
         labels.append(
             BlindLabel(
-                f"BLIND-{n + 1:03d}",
+                f"{prefix}-{n + 1:03d}",
                 case["label"],
                 alerted[n],
                 sorted(
@@ -164,7 +185,7 @@ def build(
                 ),  # KYC items skipped
             )
         )
-    return ds, alerts, labels, ext
+    return ds, alerts, labels, ext, id_map
 
 
 def pick_alert(alerts: list[Alert], customer_id: str) -> Alert:
@@ -190,6 +211,15 @@ def main() -> None:
     m = manifest(ds, alerts, ext)
     (CASES.parent / "manifest.json").write_text(json.dumps(m, indent=1, sort_keys=True) + "\n")
     print(json.dumps(m, indent=1))
+    from agentic_bank.aml import deep
+
+    base, _ = deep.generate()
+    ds2, alerts2, _, ext2, _ = build_merged(DEEP_CASES, base=base, prefix="BDEEP")
+    m2 = {**manifest(ds2, alerts2, ext2), "variant": "deep2", "cases": len(load_raw(DEEP_CASES))}
+    (CASES.parent / "deep2_manifest.json").write_text(
+        json.dumps(m2, indent=1, sort_keys=True) + "\n"
+    )
+    print(json.dumps(m2, indent=1))
 
 
 if __name__ == "__main__":

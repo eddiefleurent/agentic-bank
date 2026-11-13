@@ -25,7 +25,7 @@ per-stage numbers are in `audit["two_stage"]`.
 """
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from agentic_bank.aml.case_tools import txn_ids
@@ -39,6 +39,68 @@ def cited_risk_ids(advice: dict[str, Any] | None) -> set[str]:
     return {i for f in (advice or {}).get("risk_factors", []) for i in f["txn_ids"]}
 
 
+# ------------------------------------------------------------------ overturn rules
+# Pure functions over the stored raw stage-2 result (`raw_stage2`), so they can be rescored offline.
+# Each answers: "does stage 2 overturn the close?". Stage 2 failures never overturn.
+
+
+def raw_stage2(
+    run: TriageRun,
+    snapshot: dict[str, Any],
+    owner_of: Callable[[str], str | None],
+) -> dict[str, Any]:
+    """Everything a rule needs, as plain JSON: the agents' recommendation, the ids they cited, the
+    ids they read, the account owner of each cited id, the baseline's pack ids and the alerted
+    customer."""
+    advice = run.outcome.advice or {}
+    cited = sorted(
+        {
+            i
+            for k in ("risk_factors", "mitigating_factors")
+            for f in advice.get(k, [])
+            for i in f["txn_ids"]
+        }
+    )
+    return {
+        "recommendation": run.outcome.recommendation,
+        "failure": run.outcome.failure,
+        "cited_risk_ids": sorted(cited_risk_ids(advice)),
+        "cited_ids": cited,
+        "read_ids": sorted(run.audit.get("read_ids", [])),
+        "owners": {i: owner_of(i) for i in cited},
+        "pack_ids": sorted(txn_ids(snapshot)),
+        "alerted_customer_id": snapshot["alert"].get("customer_id"),
+    }
+
+
+def _escalates(raw: Mapping[str, Any]) -> bool:
+    return raw["failure"] is None and raw["recommendation"] == "escalate"
+
+
+def _read_risk_ids(raw: Mapping[str, Any]) -> set[str]:
+    return set(raw["cited_risk_ids"]) & set(raw["read_ids"])
+
+
+def rule_a(raw: Mapping[str, Any]) -> bool:
+    """New evidence: escalate and cite a read transaction that is not in the baseline's pack."""
+    return _escalates(raw) and bool(_read_risk_ids(raw) - set(raw["pack_ids"]))
+
+
+def rule_b(raw: Mapping[str, Any]) -> bool:
+    """Followed the money: escalate and cite a read transaction on another customer's account."""
+    return _escalates(raw) and any(
+        raw["owners"].get(i) not in (None, raw["alerted_customer_id"]) for i in _read_risk_ids(raw)
+    )
+
+
+def rule_c(raw: Mapping[str, Any]) -> bool:
+    """Any valid escalate: the agents escalate and the normal code checks passed."""
+    return _escalates(raw)
+
+
+RULES: dict[str, Callable[[Mapping[str, Any]], bool]] = {"A": rule_a, "B": rule_b, "C": rule_c}
+
+
 def stage_info(run: TriageRun) -> dict[str, Any]:
     return {
         "recommendation": run.outcome.recommendation,
@@ -50,7 +112,12 @@ def stage_info(run: TriageRun) -> dict[str, Any]:
     }
 
 
-def two_stage(baseline: Reviewer, graph: Reviewer) -> Reviewer:
+def two_stage(
+    baseline: Reviewer,
+    graph: Reviewer,
+    owner_of: Callable[[str], str | None] = lambda _: None,
+    rule: str = "A",
+) -> Reviewer:
     def run_two_stage(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> TriageRun:
         t0 = time.monotonic()
         first = baseline(bedrock, model_id, snapshot)
@@ -71,6 +138,8 @@ def two_stage(baseline: Reviewer, graph: Reviewer) -> Reviewer:
         second = graph(bedrock, model_id, {"alert": snapshot["alert"]})
         second.seconds = second.seconds or round(time.monotonic() - t1, 2)
         info["stage2"] = stage_info(second)
+        raw = raw_stage2(second, snapshot, owner_of)
+        info["stage2_raw"] = raw
         usage = {
             k: first.usage.get(k, 0) + second.usage.get(k, 0)
             for k in ("inputTokens", "outputTokens", "model_calls")
@@ -91,9 +160,8 @@ def two_stage(baseline: Reviewer, graph: Reviewer) -> Reviewer:
             note["stage2_failed"] = second.outcome.failure
             return done(merged, "stage2_failed_close_stands")
         if second.outcome.recommendation == "escalate":
-            read = set(second.audit.get("read_ids", []))
-            new = sorted((cited_risk_ids(second.outcome.advice) & read) - txn_ids(snapshot))
-            if new:
+            new = sorted(_read_risk_ids(raw) - set(raw["pack_ids"]))
+            if RULES[rule](raw):
                 note["new_evidence_ids"] = new
                 merged.outcome = TriageOutcome("escalate", None, advice)
                 return done(merged, "stage2_escalate_new_evidence", new_evidence_ids=new)

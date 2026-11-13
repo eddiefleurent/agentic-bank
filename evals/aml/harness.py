@@ -41,7 +41,9 @@ LABELS = {
     "base": HERE / "labels.json",
     "deep": HERE / "deep" / "labels.json",
     "blind": HERE / "blind" / "cases.json",
+    "deep2": HERE / "blind" / "deep_cases.json",  # plus the deep variant's own labels
 }
+EXTRA_LABELS = {"deep2": HERE / "deep" / "labels.json"}
 NO_TYPOLOGY = "n/a"  # blind cases carry free-text typologies, so typology accuracy is not scored
 GRAPH_REVIEWERS = {"agents-graph"}
 RULE_OF = {
@@ -113,6 +115,8 @@ def load_cases(
             ds,
             alerts,
         )
+    if variant == "deep2":
+        return load_deep2()
     ds, labels = deep.generate() if variant == "deep" else data.generate()
     alerts = rules.run_rules(ds)
     cases = [
@@ -129,6 +133,42 @@ def load_cases(
     ]
     noisy = [a for a in alerts if a.customer_id in set(labels["noise_customer_ids"])]
     cases += [EvalCase(f"NOISE-{a.alert_id}", "noise", "none", a) for a in noisy[:noise]]
+    return cases, ds, alerts
+
+
+def load_deep2() -> tuple[list[EvalCase], data.Dataset, list[Alert]]:
+    """Round 2 set: our deep variant (66 cases) plus the 20 blind deep cases, in one store.
+    The deep labels' transaction ids are mapped to the merged store's ids."""
+    base, labels = deep.generate()
+    ds, alerts, extra, _, id_map = blind.build_merged(blind.DEEP_CASES, base=base, prefix="BDEEP")
+    cases = []
+    for c in labels["cases"]:
+        mapped = dict(c)
+        for k in ("injection_txn_ids", "decisive_txn_ids", "evidence_txn_ids"):
+            mapped[k] = [id_map[i] for i in c.get(k, [])]
+        cases.append(
+            EvalCase(
+                c["label_id"],
+                c["verdict"],
+                c["typology"],
+                pick_alert(mapped, alerts),
+                mapped["injection_txn_ids"],
+                c.get("depth", "shallow"),
+                mapped["decisive_txn_ids"],
+            )
+        )
+    cases += [
+        EvalCase(
+            b.label_id,
+            b.verdict,
+            NO_TYPOLOGY,
+            blind.pick_alert(alerts, b.alerted_customer_id),
+            [],
+            "blind_deep",
+            b.decisive_txn_ids,
+        )
+        for b in extra
+    ]
     return cases, ds, alerts
 
 
@@ -149,6 +189,9 @@ def stage_fields(stages: dict[str, Any], model_id: str) -> dict[str, Any]:
         )
         out[f"{name}_latency_s"] = st["seconds"] if st else 0.0
     out["new_evidence_ids"] = stages.get("new_evidence_ids", [])
+    out["stage1_recommendation"] = stages["stage1"]["recommendation"]
+    out["stage1_failure"] = stages["stage1"]["failure"]
+    out["stage2_raw"] = stages.get("stage2_raw")
     return out
 
 
@@ -253,6 +296,17 @@ def core(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def by_depth(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """shallow, deep (our hops and window cases), blind and blind_deep are separate groups."""
+    pick = lambda *d: core([r for r in rows if r.get("depth", "shallow") in d])  # noqa: E731
+    return {
+        "shallow": pick("shallow"),
+        "deep": pick("hops", "window"),
+        "blind": pick("blind"),
+        "blind_deep": pick("blind_deep"),
+    }
+
+
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     sus = [r for r in rows if r["verdict"] == "suspicious"]
     ben = [r for r in rows if r["verdict"] == "benign"]
@@ -315,10 +369,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "tool_calls_per_case": rate(sum(r["tool_calls"] for r in rows), n),
         "cost_usd_per_case": rate(sum(r["cost_usd"] for r in rows), n),
         "cost_usd_total": sum(r["cost_usd"] for r in rows),
-        "by_depth": {
-            "shallow": core([r for r in rows if r.get("depth", "shallow") == "shallow"]),
-            "deep": core([r for r in rows if r.get("depth", "shallow") != "shallow"]),
-        },
+        "by_depth": by_depth(rows),
         "by_typology": {
             t: {
                 "suspicious_escalated": share(sus, t, "escalate"),
@@ -333,6 +384,7 @@ MANIFESTS = {
     "base": HERE / "manifest.json",
     "deep": HERE / "deep" / "manifest.json",
     "blind": HERE / "blind" / "manifest.json",
+    "deep2": HERE / "blind" / "deep2_manifest.json",
 }
 
 
@@ -348,7 +400,12 @@ def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
         reviewer,
         model_id,
         [hashlib.sha256(inspect.getsource(m).encode()).hexdigest() for m in modules],
-        hashlib.sha256(LABELS[variant].read_bytes()).hexdigest(),
+        hashlib.sha256(
+            b"".join(
+                p.read_bytes()
+                for p in (LABELS[variant], EXTRA_LABELS.get(variant, LABELS[variant]))
+            )
+        ).hexdigest(),
         json.loads(MANIFESTS[variant].read_text())["dataset_sha256"],
     ]
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]

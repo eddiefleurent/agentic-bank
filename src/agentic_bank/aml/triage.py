@@ -344,7 +344,12 @@ def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
 
         if world is None:
             raise ValueError("two_stage needs the dataset and alerts")
-        return two_stage(run_baseline, graph_reviewer(*world))
+        by_id = world[0].by_id
+        return two_stage(
+            run_baseline,
+            graph_reviewer(*world),
+            lambda i: by_id[i].customer_id if i in by_id else None,
+        )
     if name == "agents-graph":
         from agentic_bank.aml.agents import graph_reviewer
 

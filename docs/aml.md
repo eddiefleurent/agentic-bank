@@ -1,6 +1,6 @@
 # AML alert triage
 
-> **Status: slices 1, 2, 2b and the two-stage test.** Data (a base and a "deep" variant), rules, the case snapshot,
+> **Status: slices 1, 2, 2b and two rounds of the two-stage test.** Data (a base and a "deep" variant), rules, the case snapshot,
 > three reviewers (one model call; a Strands agent team on the snapshot; the same team exploring the
 > whole transaction graph) and an eval harness exist. Measured locally against Bedrock (model calls only,
 > 2026-11-12). No infrastructure yet. Everything is synthetic and fictional.
@@ -461,3 +461,41 @@ Two-stage is not killed, and it is not shown to help.
   logic. Gaps of a few points between reviewers are inside that drift.
 
 Spend for the kept runs: about $4.81.
+
+### Round 2: overturn rules and 20 more blind deep cases
+
+Prediction: `evals/aml/blind/PREDICTION_2.md` (commit 6a03817). Full numbers:
+`evals/aml/blind/RESULTS_2.md`. Raw runs: `evals/aml/results/round2/`.
+
+**What changed.** The set is our deep variant plus 20 new blind deep cases
+(`deep_cases.json`, imported by the same code as the first blind set, labels hidden, `depth="blind_deep"`).
+86 cases, 36 of them deep. The harness now reports `shallow`, `deep` (ours), `blind` and
+`blind_deep` as separate groups. Stage 2 stores its raw result for each case (recommendation, cited
+ids, read ids, owner of each cited id, pack ids). Three overturn rules are pure functions over it
+(`two_stage.rule_a`, `rule_b`, `rule_c`), so they are scored offline from the same runs:
+
+- A: new evidence (the agents cite a read transaction not in the single call's pack).
+- B: followed the money (the agents cite a read transaction on another customer's account).
+- C: any valid escalate.
+
+Two-stage ran 5 times on gpt-oss-120b. Shallow suspicious cases ran in 2 of the 5 runs only (a
+speed-up); no prediction line uses them.
+
+| Set | Measure | Prediction (rule B) | Actual | Verdict |
+| --- | --- | --- | --- | --- |
+| 18 deep suspicious | Recall | single + 10 points and beyond the noise band | 80.0% vs 68.9% (+11.1); noise band 16.7 | Not met |
+| 25 shallow benign | False escalations | single + 10 points or less | 36.0% vs 35.2% | Met |
+| 18 deep benign | False escalations | single + 15 points or less | 61.1% vs 60.0% | Met |
+| 20 blind deep | Recall | above single | 78% vs 76% | Met (direction only) |
+| Ordering | Deep recall | A <= B <= C | 78.9 <= 80.0 <= 88.9 | Met |
+| Ordering | False escalations | C worst | C 58.4% / 73.3% vs 36-38% / 61% | Met |
+
+**Kill rule.** B must beat the single call on deep recall by 10 points beyond the noise band, and
+not add more than 10 points of shallow false escalations. The gain (+11.1) is inside the noise band
+(16.7), so **the kill rule fires. We stop recommending two-stage.**
+
+**Plain words.** B is nearly free in false escalations (+0.8 and +1.1 points) but its recall gain is
+smaller than the single call's own run-to-run swing. The single call changes its answer on 24% of
+cases between runs, and on 33% of the deep ones. Rule A and B decide almost the same cases. Rule C
+is the only variant with a gain beyond the noise (+20 points on deep recall) and it costs +23 points
+of shallow false escalations. Spend: about $2.6 including a discarded partial run.
