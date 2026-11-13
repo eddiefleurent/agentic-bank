@@ -1,9 +1,9 @@
 """Read-only tools over ONE case, the only data the triage agents can reach.
 
-The seam: every tool calls a `CaseSource`. Today `SnapshotSource` reads the in-memory snapshot dict
-from `snapshot.build_case_snapshot`. Slice 3 adds a source that queries the DynamoDB partition
-`CASE#<alert_id>` (behind a Gateway, with `dynamodb:LeadingKeys` on the role), and the tools and
-agents do not change.
+The seam: every tool calls a `CaseSource`. `SnapshotSource` reads the in-memory snapshot dict
+from `snapshot.build_case_snapshot` (evals, tests). `DynamoCaseSource` (slice 3, on AWS) reads the
+DynamoDB partition `CASE#<alert_id>` through credentials whose session policy pins
+`dynamodb:LeadingKeys` to that one case, and the tools and reviewers do not change.
 
 Plain Python, no model and no framework: each function takes a source and returns a JSON-able
 dict, so tests can call them directly. Memos come back as `memo_untrusted`: text typed by
@@ -49,6 +49,40 @@ class SnapshotSource:
             raise KeyError(name)
         self.reads.append(name)
         return self._snap[name]
+
+
+class DynamoCaseSource:
+    """One case partition in the data table. `client` is a low-level DynamoDB client; on AWS its
+    credentials can only read this partition, so a wrong key is AccessDenied, not someone else's
+    case. Reads the whole partition once (a case is a few hundred small rows, bounded by the
+    snapshot limits), then serves sections like `SnapshotSource`."""
+
+    def __init__(self, client: Any, table: str, alert_id: str) -> None:
+        from agentic_bank.aml.snapshot import case_key, from_ddb
+
+        key = case_key(alert_id)
+        items: list[dict[str, Any]] = []
+        args: dict[str, Any] = {
+            "TableName": table,
+            "KeyConditionExpression": "customer = :c",
+            "ExpressionAttributeValues": {":c": {"S": key}},
+            "ConsistentRead": True,
+        }
+        while True:
+            page = client.query(**args)
+            items += [i for i in page["Items"] if "seq" in i]  # skip the RECOMMENDATION row
+            if "LastEvaluatedKey" not in page:
+                break
+            args["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+        self.snapshot = from_ddb(items)
+        self._src = SnapshotSource(self.snapshot)
+
+    @property
+    def reads(self) -> list[str]:
+        return self._src.reads
+
+    def section(self, name: str) -> Any:
+        return self._src.section(name)
 
 
 def untrusted(row: dict[str, Any]) -> dict[str, Any]:

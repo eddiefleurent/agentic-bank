@@ -6,7 +6,8 @@ This is a reference and learning architecture, not a production system: see
 Diagrams:
 [system context](diagrams/01-system-context.png), [read path](diagrams/02-read-path.png),
 [transfer](diagrams/03-transfer.png), [dispute](diagrams/04-dispute.png),
-[info round and analyst](diagrams/05-info-round.png).
+[info round and analyst](diagrams/05-info-round.png),
+[AML triage](diagrams/06-aml-triage.png) (slice 3, planned until applied).
 
 ## What runs where
 

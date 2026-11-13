@@ -66,6 +66,28 @@ locals {
       # Classifier: up to two model calls plus the grounding check. Investigator: its 90 s budget.
       timeout = var.investigator_enabled ? 140 : 60
     }
+    # See aml.tf. Both run from the AML zip (src plus pydantic), not the plain src zip.
+    aml = {
+      handler = "agentic_bank.aml.handler.handler"
+      package = "aml"
+      env = {
+        TABLE_ARN             = local.table_arn
+        AML_STATE_MACHINE_ARN = local.aml_machine_arn
+        MODEL_ID              = local.aml_model
+      }
+      timeout = 60  # open: build the seeded bank, run the rules, ~300 PutItem calls
+      memory  = 512 # more memory is also more CPU for the dataset build
+    }
+    aml-review = {
+      handler = "agentic_bank.aml.handler.review_handler"
+      package = "aml"
+      env = {
+        TABLE_ARN            = local.table_arn
+        DATA_READER_ROLE_ARN = local.data_reader_role_arn
+        MODEL_ID             = local.aml_model
+      }
+      timeout = 120 # one gpt-oss call over ~15k tokens took about 10 s in the evals
+    }
     analyst = {
       handler = "agentic_bank.disputes.analyst.handler"
       role    = "analyst-fn" # agentic-bank-app-analyst is the human role
@@ -88,6 +110,17 @@ locals {
     dispute     = local.dispute_grants
     review      = concat(local.review_grants, local.review_investigator_grants)
     analyst     = local.analyst_grants
+    aml         = local.aml_grants
+    aml-review  = local.aml_review_grants
+  }
+  # Which zip each function runs. Hash and path come from the same archive.
+  package_path = {
+    app = data.archive_file.lambda.output_path
+    aml = data.archive_file.aml_lambda.output_path
+  }
+  package_hash = {
+    app = data.archive_file.lambda.output_base64sha256
+    aml = data.archive_file.aml_lambda.output_base64sha256
   }
 }
 
@@ -147,9 +180,9 @@ resource "aws_lambda_function" "fn" {
   role             = aws_iam_role.lambda[each.key].arn
   runtime          = "python3.14"
   handler          = each.value.handler
-  filename         = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
-  memory_size      = 256
+  filename         = local.package_path[try(each.value.package, "app")]
+  source_code_hash = local.package_hash[try(each.value.package, "app")]
+  memory_size      = try(each.value.memory, 256)
   timeout          = try(each.value.timeout, 10)
 
   dynamic "environment" {

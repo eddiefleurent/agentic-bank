@@ -19,6 +19,7 @@ import json
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
@@ -240,25 +241,32 @@ EVIDENCE_PACK_MAX_CHARS = 60_000
 MAX_OUTPUT_TOKENS = 3000  # gpt-oss reasons before it answers; reasoning counts against this
 
 
-def tool_spec() -> dict[str, Any]:
-    """The answer tool, from the same pydantic model and converter Strands uses for the agents."""
-    from strands.tools.structured_output.structured_output_utils import (
-        convert_pydantic_to_tool_spec,
-    )
+TOOL_SPEC_FILE = Path(__file__).with_name("triage_tool.json")
 
-    spec = dict(convert_pydantic_to_tool_spec(Triage))
-    spec["name"] = TOOL_NAME
-    return spec
+
+def tool_spec() -> dict[str, Any]:
+    """The answer tool: `Triage` converted by the same Strands converter the agents use, frozen
+    to JSON so the Lambda needs no Strands. A test fails if it drifts from the pydantic model."""
+    return json.loads(TOOL_SPEC_FILE.read_text())
 
 
 def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> TriageRun:
     """One model call over the whole snapshot. Never raises; every failure is escalate."""
+    return call_baseline(bedrock, model_id, snapshot)[0]
+
+
+def call_baseline(
+    bedrock: Any, model_id: str, snapshot: dict[str, Any]
+) -> tuple[TriageRun, dict[str, Any] | None]:
+    """`run_baseline`, also returning the model's raw answer (None if there was none), so a
+    separate step can run `check` again on data it read itself (the AWS workflow does)."""
     started = time.monotonic()
     run = TriageRun(outcome=failed("baseline did not run"))
+    answer: Any = None
     text = case_text(snapshot)
     if len(text) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never silently cut
         run.outcome = failed("evidence pack over budget")
-        return run
+        return run, None
     try:
         response = bedrock.converse(
             modelId=model_id,
@@ -266,9 +274,7 @@ def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> Triag
             messages=[
                 {
                     "role": "user",
-                    "content": [
-                        {"text": ask(snapshot) + "\nCase snapshot:\n" + case_text(snapshot)}
-                    ],
+                    "content": [{"text": ask(snapshot) + "\nCase snapshot:\n" + text}],
                 }
             ],
             inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS, "temperature": 0},
@@ -301,7 +307,7 @@ def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> Triag
         run.outcome = failed(f"baseline error: {type(exc).__name__}")
     run.seconds = round(time.monotonic() - started, 2)
     log("aml.baseline", run)
-    return run
+    return run, answer if isinstance(answer, dict) else None
 
 
 def run_heuristic(_bedrock: Any, _model_id: str, snapshot: dict[str, Any]) -> TriageRun:

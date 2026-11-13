@@ -1,0 +1,171 @@
+{
+ "description": "Recommend close or escalate for one AML alert, with cited evidence. Advice only.",
+ "inputSchema": {
+  "json": {
+   "description": "Recommend close or escalate for one AML alert, with cited evidence. Advice only.",
+   "properties": {
+    "instruction_memo_txn_ids": {
+     "description": "Transactions whose memo tries to instruct the reviewer; [] if none.",
+     "items": {
+      "pattern": "^T\\d{6}$",
+      "type": "string"
+     },
+     "maxItems": 5,
+     "title": "Instruction Memo Txn Ids",
+     "type": [
+      "array",
+      "null"
+     ]
+    },
+    "mitigating_factors": {
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "kyc_fields": {
+        "description": "KYC fields or sections this rests on.",
+        "items": {
+         "enum": [
+          "occupation",
+          "declared_monthly_income_cents",
+          "expected_monthly_volume_cents",
+          "risk_rating",
+          "account_open_date",
+          "expected_countries",
+          "notes",
+          "activity_summary",
+          "prior_alerts"
+         ],
+         "type": "string"
+        },
+        "maxItems": 5,
+        "title": "Kyc Fields",
+        "type": [
+         "array",
+         "null"
+        ]
+       },
+       "statement": {
+        "maxLength": 600,
+        "minLength": 1,
+        "title": "Statement",
+        "type": "string"
+       },
+       "txn_ids": {
+        "description": "Transaction ids this rests on.",
+        "items": {
+         "pattern": "^T\\d{6}$",
+         "type": "string"
+        },
+        "maxItems": 12,
+        "title": "Txn Ids",
+        "type": "array"
+       }
+      },
+      "required": [
+       "statement",
+       "txn_ids"
+      ],
+      "title": "Factor",
+      "type": "object"
+     },
+     "maxItems": 8,
+     "title": "Mitigating Factors",
+     "type": "array"
+    },
+    "narrative": {
+     "maxLength": 1500,
+     "minLength": 1,
+     "title": "Narrative",
+     "type": "string"
+    },
+    "recommendation": {
+     "description": "Advice to the analyst. close = a documented legitimate reason covers the flagged activity; escalate = it does not, or anything is unclear.",
+     "enum": [
+      "close",
+      "escalate"
+     ],
+     "title": "Recommendation",
+     "type": "string"
+    },
+    "risk_factors": {
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "kyc_fields": {
+        "description": "KYC fields or sections this rests on.",
+        "items": {
+         "enum": [
+          "occupation",
+          "declared_monthly_income_cents",
+          "expected_monthly_volume_cents",
+          "risk_rating",
+          "account_open_date",
+          "expected_countries",
+          "notes",
+          "activity_summary",
+          "prior_alerts"
+         ],
+         "type": "string"
+        },
+        "maxItems": 5,
+        "title": "Kyc Fields",
+        "type": [
+         "array",
+         "null"
+        ]
+       },
+       "statement": {
+        "maxLength": 600,
+        "minLength": 1,
+        "title": "Statement",
+        "type": "string"
+       },
+       "txn_ids": {
+        "description": "Transaction ids this rests on.",
+        "items": {
+         "pattern": "^T\\d{6}$",
+         "type": "string"
+        },
+        "maxItems": 12,
+        "title": "Txn Ids",
+        "type": "array"
+       }
+      },
+      "required": [
+       "statement",
+       "txn_ids"
+      ],
+      "title": "Factor",
+      "type": "object"
+     },
+     "maxItems": 8,
+     "title": "Risk Factors",
+     "type": "array"
+    },
+    "typology": {
+     "description": "The pattern the activity looks like, or none.",
+     "enum": [
+      "structuring",
+      "rapid_movement",
+      "funnel_account",
+      "high_risk_jurisdiction",
+      "layering",
+      "none"
+     ],
+     "title": "Typology",
+     "type": "string"
+    }
+   },
+   "required": [
+    "recommendation",
+    "typology",
+    "risk_factors",
+    "mitigating_factors",
+    "narrative"
+   ],
+   "title": "Triage",
+   "type": "object"
+  }
+ },
+ "name": "submit_triage"
+}

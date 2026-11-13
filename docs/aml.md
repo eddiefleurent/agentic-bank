@@ -1,9 +1,11 @@
 # AML alert triage
 
-> **Status: slices 1, 2, 2b and two rounds of the two-stage test.** Data (a base and a "deep" variant), rules, the case snapshot,
-> three reviewers (one model call; a Strands agent team on the snapshot; the same team exploring the
-> whole transaction graph) and an eval harness exist. Measured locally against Bedrock (model calls only,
-> 2026-11-12). No infrastructure yet. Everything is synthetic and fictional.
+> **Status: slices 1, 2, 2b, two rounds of the two-stage test, and slice 3 (on AWS) built to a
+> clean `terraform plan`, not yet applied.** Data (a base and a "deep" variant), rules, the case
+> snapshot, three reviewers (one model call; a Strands agent team on the snapshot; the same team
+> exploring the whole transaction graph) and an eval harness exist. Slices 1-2 were measured locally
+> against Bedrock (model calls only, 2026-11-12). Slice 3 deploys the one-call baseline behind Step
+> Functions. Everything is synthetic and fictional.
 
 ## Slice 1: data, rules, snapshot
 
@@ -499,3 +501,76 @@ smaller than the single call's own run-to-run swing. The single call changes its
 cases between runs, and on 33% of the deep ones. Rule A and B decide almost the same cases. Rule C
 is the only variant with a gain beyond the noise (+20 points on deep recall) and it costs +23 points
 of shallow false escalations. Spend: about $2.6 including a discarded partial run.
+
+## Slice 3: the v1 reviewer on AWS
+
+> **Built to a clean `terraform plan` (2026-11-13). Not applied, not AWS-verified.** The proof is
+> `proofs/aml_triage.py`; run it after the apply.
+
+![One AML alert on AWS](diagrams/06-aml-triage.png)
+
+### What runs where
+
+| Step | Runs in | Code | AI? |
+| --- | --- | --- | --- |
+| Open: rules, snapshot, write `CASE#<alert_id>`, start the workflow | Lambda `agentic-bank-aml` | `aml/handler.open_case` (rules.py, snapshot.py unchanged) | No |
+| Review: read the case, one model call | Lambda `agentic-bank-aml-review` | `aml/handler.review_handler` -> `triage.call_baseline` | gpt-oss-120b, one call |
+| Check: cited ids real, cited KYC fields read, no close past an instruction memo | Lambda `agentic-bank-aml` | `aml/handler.check_review` -> `triage.check` (unchanged) | No |
+| Record: one queue row, status `awaiting_analyst` | Lambda `agentic-bank-aml` | `aml/handler.record` | No |
+| Order, retries, failure routing | Step Functions `agentic-bank-aml-triage` | `infra/app/aml.asl.json` | No |
+
+The case lives in the existing data table. Its keys are `customer` (partition) and `sk`, so a case
+is the partition `customer = CASE#<alert_id>` with the row layout in `snapshot.py`. No new table:
+the table already holds any partition, and IAM can already pin a role to one partition key. Each
+row's fields are one JSON string, so the reviewer on AWS reads exactly the evidence pack the evals
+measured (a test checks all 114 alerts byte for byte). `DynamoCaseSource` sits next to
+`SnapshotSource` behind the same `CaseSource` seam.
+
+Both Lambdas run from a second zip: `src` plus pydantic, which `triage.check` needs and the Lambda
+runtime lacks. `scripts/build_aml_lambda.sh` vendors the wheels into `build/aml-lambda/` with a
+symlink to `src/agentic_bank`, so the zip never holds stale code. The deploy workflow runs it before
+its plan. The answer tool's schema is frozen to `triage_tool.json` (no Strands in the Lambda); a test
+fails if it drifts from the pydantic model.
+
+### Which control stops which risk
+
+| Risk | Control | Enforced by |
+| --- | --- | --- |
+| The reviewer reads another customer's case (bug or injected text) | Its own role has no table rights. It assumes the data-reader role with a session policy pinning `dynamodb:LeadingKeys` to `CASE#<alert_id>` | AWS IAM (proof: another case, a Scan and a write are AccessDenied) |
+| The alert id widens that policy (`A-*`) | `case_key` accepts only `A-` plus 4 digits before it is used in a key or a policy | Our code |
+| The reviewer changes data | No write action in any policy it can reach | AWS IAM |
+| The AML worker touches money or customer rows | PutItem and Query only where every partition key matches `CASE#A-*`, PutItem only with the listed attributes | AWS IAM (`aml.tf`) |
+| A memo tells the model to close | Memos are renamed `memo_untrusted`; a flagged instruction memo blocks close in `check` | Prompt plus our code |
+| The model invents evidence | `check` re-reads the case itself and rejects ids not in it | Our code, separate step from the model |
+| Model error, timeout, bad JSON | Every failure becomes escalate with the reason; the row still reaches the queue | Step Functions Catch plus our code |
+| An alert is closed or the customer told (tipping-off) | No state closes; there is no write path to the customer at all | Design: v1 is human-only |
+
+### What is simplified, and how a bank would do it
+
+- **Who opens a case.** An admin or the proof invokes `open`, which rebuilds the seeded bank in
+  memory (0.5 s). A bank's transaction-monitoring batch would emit alerts (EventBridge) and read a
+  real transaction store.
+- **No analyst screen for the AML queue.** Rows wait with `analyst_queue = "aml"` (the dispute
+  analyst reads `"open"`, so the queues stay apart). A bank: a case-management tool, four-eyes on
+  closes, a full audit trail.
+- **The reviewer reuses the data-reader role.** The workload boundary (infra/bootstrap) lets app
+  roles assume only five named roles, so a dedicated AML case-reader role needs a bootstrap change
+  by a human admin. Today, a bug that dropped the session policy would let the reviewer read
+  customer rows. A bank would add a case-reader role whose own policy is limited to `CASE#*`, so the
+  session policy narrows a role that is already narrow.
+- **Writes one row at a time.** The boundary allows PutItem, not BatchWriteItem: about 300 calls,
+  2-4 s.
+- **Logs.** Each review logs one line (tokens, stop reason, failure); the state machine has no
+  execution logging, and history keeps the model's answer under the AWS-owned key. A bank would log
+  every model call with its input hash, encrypt history with its own KMS key, and keep records for
+  5 years (BSA).
+- **One model, on demand, us-east-1, no guardrail.** `check` is the output control here; the
+  dispute grounding guardrail scores free text against a source, which this answer is not.
+
+### Cost
+
+On demand, nothing idle. Per alert: about 15,000 input and 1,500 output gpt-oss tokens (about
+$0.003), about 300 small DynamoDB writes and a few reads (about $0.0004), four state transitions
+and about 15 s of Lambda: well under one cent. A month of proof runs (say 20 alerts) is about
+$0.10. The Lambda zip adds about 3 MB of code storage (free).
+

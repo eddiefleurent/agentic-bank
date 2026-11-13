@@ -64,12 +64,16 @@ uv run python proofs/money_wall.py
 uv run python proofs/dispute_paths.py --keep --with-timeout
 uv run python proofs/analyst_pii.py
 uv run python proofs/refund_cap.py
+uv run python proofs/aml_triage.py
 ```
 
 The proofs write to the deployed stack (transfers, disputes, refunds), so balances drift from the
 seed values. The seeded charges are dated November 2026 and the dispute window is 120 days: to run
 the dispute proofs after February 2027, change the dates in `infra/app/data.tf` and recreate those
 rows.
+
+A local `terraform plan` of `infra/app` first needs `scripts/build_aml_lambda.sh` (the AML
+Lambdas' pydantic wheels; the deploy workflow runs it itself).
 
 ## Teardown
 
