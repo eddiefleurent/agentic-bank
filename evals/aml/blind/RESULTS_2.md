@@ -30,7 +30,7 @@ Noise band = max minus min of the single call's 5 per-run values (PREDICTION_2 d
 | 25 shallow benign | False escalations | B at most single + 10 points | B 36.0%, single 35.2%, +0.8 | Met |
 | 18 deep benign | False escalations | B at most single + 15 points | B 61.1%, single 60.0%, +1.1 | Met |
 | 20 blind deep | Recall | B above single | B 78.0%, single 76.0%, +2 points (one case in two of five runs) | Met (direction only) |
-| Rule ordering | Deep recall A <= B <= C | 78.9% <= 80.0% <= 88.9% | Met |
+| Rule ordering | Deep recall | A <= B <= C | 78.9% <= 80.0% <= 88.9% | Met |
 | Rule ordering | C worst on false escalations | C is worst | C 58.4% shallow benign and 73.3% deep benign, against 38.4% and 61.1% for A, 36.0% and 61.1% for B | Met |
 
 ## Kill rule
@@ -96,8 +96,8 @@ cases. That is why a gap of 11 points does not count.
 Two-stage with rule B is not shown to beat the single call, so we stop recommending it.
 
 - Rule B raised deep recall from 68.9% to 80.0%. The single call's own five runs ranged from 61.1%
-  to 77.8%, so the gain is smaller than the noise. Run 5 shows it: the single call and B both
-  scored 61.1% and 66.7%, and in run 4 B was 11 points up.
+  to 77.8%, so the gain is smaller than the noise. In run 5 B was 5.6 points
+  up, in run 4 it was 11.1 points up, and in run 2 it was 5.5 points up.
 - B did what it was built to do on false escalations. It added 0.8 points on shallow benign and 1.1
   on deep benign. That is the whole benefit of the rule: it is nearly free in false escalations.
 - The old "new evidence" rule A gave 78.9%, one point under B. Round 1's idea that A was too strict
