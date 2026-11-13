@@ -36,7 +36,11 @@ def answer(s: dict[str, Any], recommendation: str = "escalate") -> dict[str, Any
         "typology": "structuring",
         "risk_factors": [{"statement": "Cash just under 10,000.", "txn_ids": flagged[:2]}],
         "mitigating_factors": [
-            {"statement": "Occupation noted.", "txn_ids": [], "kyc_fields": ["occupation"]}
+            {
+                "statement": "Occupation noted.",
+                "txn_ids": flagged[-1:],
+                "kyc_fields": ["occupation"],
+            }
         ],
         "instruction_memo_txn_ids": [],
         "narrative": "Repeated cash deposits under the threshold.",
@@ -196,9 +200,11 @@ def test_check_rejects_bad_escalations(mutate, failure):
 def test_close_without_a_cited_reason_escalates():
     s = snap()
     a = answer(s, "close")
-    a["mitigating_factors"] = [{"statement": "Seems fine.", "txn_ids": [], "kyc_fields": []}]
+    a["mitigating_factors"] = [
+        {"statement": "Seems fine.", "txn_ids": [], "kyc_fields": ["occupation"]}
+    ]
     out = triage.check_snapshot(a, s)
-    assert out.recommendation == "escalate" and out.failure == "close without a cited reason"
+    assert out.recommendation == "escalate" and out.failure == "close without a cited transaction"
     assert (
         out.advice and out.advice["recommendation"] == "close"
     )  # the model's advice is kept for the analyst
@@ -310,7 +316,9 @@ def test_fingerprint_is_stable_and_moves_with_what_matters(monkeypatch):
     a = harness.fingerprint("agents", "m")
     assert a == harness.fingerprint("agents", "m")
     assert a != harness.fingerprint("baseline", "m") != harness.fingerprint("agents", "m2")
-    monkeypatch.setattr(triage, "BASELINE_PROMPT", triage.BASELINE_PROMPT + " ")
+    real = harness.inspect.getsource
+    edited = lambda m: real(m) + (" " if m is triage else "")  # noqa: E731  a prompt edit
+    monkeypatch.setattr(harness.inspect, "getsource", edited)
     assert harness.fingerprint("agents", "m") != a
 
 
@@ -322,3 +330,31 @@ def test_deepcopy_of_snapshot_is_untouched_by_tools():
     case_tools.neighbours(src, s["alert"]["customer_id"])
     triage.case_text(s)
     assert s == before
+
+
+def test_citing_an_empty_kyc_field_is_refused():
+    s = snap()
+    s["kyc"] = {**s["kyc"], "notes": ""}
+    a = answer(s, "close")
+    a["mitigating_factors"][0]["kyc_fields"] = ["notes"]
+    out = triage.check_snapshot(a, s)
+    assert out.recommendation == "escalate"
+    assert (out.failure or "").startswith("cited fields not read or empty")
+
+
+def test_a_flagged_instruction_memo_blocks_close():
+    s = snap()
+    a = answer(s, "close")
+    a["instruction_memo_txn_ids"] = [s["flagged_transactions"][0]["txn_id"]]
+    out = triage.check_snapshot(a, s)
+    assert out.recommendation == "escalate"
+    assert out.failure == "close blocked: instruction memo flagged"
+
+
+def test_heuristic_reviewer_uses_no_model():
+    s = snap()
+    s["kyc"] = {**s["kyc"], "notes": ""}
+    run_ = triage.run_heuristic(None, "m", s)
+    assert run_.outcome.recommendation == "escalate" and run_.usage == {}
+    s["kyc"]["notes"] = "Owns a bakery."
+    assert triage.run_heuristic(None, "m", s).outcome.recommendation == "close"

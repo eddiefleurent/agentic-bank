@@ -88,6 +88,15 @@ class Dataset:
         return out
 
     @cached_property
+    def by_counterparty(self) -> dict[str, list[Txn]]:
+        """Non-card rows by counterparty id, in time order (built once per dataset)."""
+        out: dict[str, list[Txn]] = {}
+        for t in self.transactions:
+            if t.counterparty_id and t.type != "card":
+                out.setdefault(t.counterparty_id, []).append(t)
+        return out
+
+    @cached_property
     def by_id(self) -> dict[str, Txn]:
         return {t.txn_id: t for t in self.transactions}
 
@@ -230,18 +239,29 @@ class Builder:
         self.arch[cid] = arch
 
     def pick(self, kind: str, *, country: str | None = None, name: str | None = None) -> str:
-        """An unused counterparty of this kind, optionally re-labelled; then reserved."""
-        hr = country in HIGH_RISK_COUNTRIES
+        """An unused counterparty of this kind, optionally re-labelled; then reserved.
+
+        High-risk counterparties are shared on purpose (many customers wire to them), so one is
+        never renamed or moved: a high-risk `country` picks one already in that country. Only a
+        reserved, ordinary counterparty is re-labelled."""
+        if country in HIGH_RISK_COUNTRIES:
+            if name:
+                raise ValueError("shared high-risk counterparties are never renamed")
+            ok = [
+                cp.counterparty_id
+                for cp in self.cps.values()
+                if cp.kind == kind and cp.country == country
+            ]
+            return self.rng.choice(ok)
         ok = [
             cp.counterparty_id
             for cp in self.cps.values()
             if cp.kind == kind
             and cp.counterparty_id not in self.reserved
-            and ((cp.country in HIGH_RISK_COUNTRIES) == hr)
+            and cp.country not in HIGH_RISK_COUNTRIES
         ]
         cid = self.rng.choice(ok)
-        if not hr:  # high-risk counterparties are shared on purpose: many customers wire to them
-            self.reserved.add(cid)
+        self.reserved.add(cid)
         cp = self.cps[cid]
         if country:
             cp.country = country
@@ -1097,6 +1117,78 @@ def b_layering(b: Builder, k: int) -> None:
     b.case("benign", "layering", f"explained_round_dollar_chain_{k}", members, rows, ["R5"], why)
 
 
+# ---- profile mix: no single KYC attribute gives the label away -------------------------------
+COVER_NOTES = {  # what a suspicious customer told the bank: plausible, but not the scale seen
+    "structuring": ["Works part-time; tips paid in cash.", "Sells crafts at weekend markets."],
+    "rapid_movement": [
+        "Expects occasional transfers from relatives abroad.",
+        "Freelance work for overseas clients.",
+    ],
+    "funnel_account": [
+        "Collects contributions for a community savings circle.",
+        "Sells event tickets for friends.",
+    ],
+    "high_risk_jurisdiction": [
+        "Occasionally sends money to friends abroad.",
+        "Buys goods online from overseas sellers.",
+    ],
+    "layering": ["Helps relatives with bill payments.", "Resells electronics as a side business."],
+}
+# Benign cases whose reason is also in memos, counterparty names or the steady pattern: their KYC
+# notes are left empty in some cases, as when a profile was never updated.
+BLANKABLE = {
+    "explained_pass_through_1",
+    "explained_pass_through_3",
+    "pooled_wedding_gift_fund",
+    "pooled_group_trip",
+    "pooled_club_dues",
+    "documented_cash_business",
+}
+KEEP_AGE = {"new_account_pass_through"}  # the account's youth is part of the evidence
+SALARIED = ["Accountant", "Software tester", "Electrician", "Bank teller", "Pharmacist"]
+# Benign cases whose reason does not depend on the customer's income.
+INCOME_FREE = {
+    "explained_pass_through_3",
+    "pooled_wedding_gift_fund",
+    "pooled_marathon_charity_team",
+    "pooled_group_trip",
+    "pooled_club_dues",
+    "pooled_reunion",
+    "explained_round_dollar_chain_1",
+    "explained_by_history",
+    "family_chain_4hop",
+}
+
+
+def _set_income(c: Customer, dollars: int) -> None:
+    if c.expected_monthly_volume_cents == usd(c.declared_monthly_income_cents / 100 * 1.3):
+        c.expected_monthly_volume_cents = usd(dollars * 1.3)
+    c.declared_monthly_income_cents = usd(dollars)
+
+
+def vary_profiles(b: Builder) -> None:
+    """Draw the alerted customer's risk rating, account age and (for cover stories) notes from
+    the same distributions for both labels. Without this, empty notes, a low rating or a 2026
+    account told the label on their own (found in review, 2026-11-12)."""
+    for c in b.cases:
+        cust = b.customers[c["primary_customer_id"]]
+        cust.risk_rating = b.rng.choices(["low", "medium", "high"], [50, 35, 15])[0]
+        if c["verdict"] == "benign" and c["typology"] == "high_risk_jurisdiction" and cust.notes:
+            cust.risk_rating = "high"  # documented ties to a high-risk country: rated high
+        if c["scenario"] not in KEEP_AGE:
+            months = b.rng.randint(1, 7) if b.rng.random() < 0.25 else b.rng.randint(8, 120)
+            cust.account_open_date = _opened(b, months)
+        if c["verdict"] == "suspicious" and b.rng.random() < 0.4:  # not every launderer is poor
+            cust.occupation = b.rng.choice(SALARIED)
+            _set_income(cust, b.rng.randint(4500, 9000))
+        if c["verdict"] == "benign" and c["scenario"] in INCOME_FREE and b.rng.random() < 0.6:
+            _set_income(cust, b.rng.randint(1800, 3400))
+        if c["verdict"] == "suspicious" and not cust.notes and b.rng.random() < 0.6:
+            cust.notes = b.rng.choice(COVER_NOTES[c["typology"]])
+        if c["verdict"] == "benign" and c["scenario"] in BLANKABLE and b.rng.random() < 0.7:
+            cust.notes = ""
+
+
 # ---- noise: unlabeled ordinary alerts ----------------------------------------------------------
 def noise(b: Builder) -> None:
     for i in range(12):
@@ -1235,6 +1327,7 @@ def generate(
     noise(b)
     if extra:
         extra(b)
+    vary_profiles(b)
     for cid in b.customers:
         background(b, cid)
     b.txns.sort(

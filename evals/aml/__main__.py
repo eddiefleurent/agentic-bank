@@ -40,7 +40,9 @@ def runs_of(prefix: Path) -> list[dict[str, Any]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument(
-        "--reviewer", choices=("baseline", "agents", "agents-graph"), default="baseline"
+        "--reviewer",
+        choices=("heuristic", "baseline", "agents", "agents-graph"),
+        default="baseline",
     )
     parser.add_argument("--variant", choices=("base", "deep"), default="base")
     parser.add_argument("--model-id", default=MODEL_ID)

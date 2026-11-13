@@ -25,7 +25,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -184,7 +184,7 @@ def evaluate(
 
 # ---------------------------------------------------------------------------- metrics
 
-CITATION_FAILURES = ("cited ids not in case", "cited fields not in case")
+CITATION_FAILURES = ("cited ids not in case", "cited fields not read or empty")
 
 
 def share(rows: list[dict[str, Any]], typology: str, recommendation: str) -> str:
@@ -289,26 +289,23 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
-    """Hash of everything that decides an outcome: prompts, answer schemas, checks, bounds, the
-    evidence-pack budget, graph paging, model, reviewer and the labelled data. A result whose
-    fingerprint differs is about an older system."""
-    from agentic_bank.aml import agents, graph_source  # Strands: the investigator group
+MANIFESTS = {"base": HERE / "manifest.json", "deep": HERE / "deep" / "manifest.json"}
 
+
+def fingerprint(reviewer: str, model_id: str, variant: str = "base") -> str:
+    """Hash of everything that decides an outcome: the reviewer and model, the source of every
+    module on the path (prompts, schemas, checks, bounds, tools and their docstrings, snapshot
+    bounds, graph paging), the labels and the dataset hash in the manifest. A result whose
+    fingerprint differs is about an older system."""
+    from agentic_bank.aml import agents, case_tools, graph_source  # Strands: investigator group
+
+    modules = [triage, agents, case_tools, graph_source, snapshot, rules]
     parts = [
         reviewer,
         model_id,
-        triage.BASELINE_PROMPT,
-        triage.EVIDENCE_PACK_MAX_CHARS,
-        [asdict(agents.SNAPSHOT), asdict(agents.GRAPH)],
-        triage.Triage.model_json_schema(),
-        agents.Findings.model_json_schema(),
-        inspect.getsource(triage.check),
-        triage.MAX_OUTPUT_TOKENS,
-        asdict(agents.Bounds()),
-        [graph_source.PAGE_SIZE, graph_source.MAX_ROWS_READ],
-        snapshot.SCHEMA_VERSION,
+        [hashlib.sha256(inspect.getsource(m).encode()).hexdigest() for m in modules],
         hashlib.sha256(LABELS[variant].read_bytes()).hexdigest(),
+        json.loads(MANIFESTS[variant].read_text())["dataset_sha256"],
     ]
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]
 

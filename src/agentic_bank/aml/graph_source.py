@@ -6,38 +6,38 @@ of the 90, at any hop depth. The controls move from "what is in the snapshot" to
 
 - read-only: every method builds new dicts; nothing in the dataset can change;
 - paginated: at most PAGE_SIZE rows per call, so no single call dumps the graph;
-- capped: at most MAX_ROWS_READ rows per alert, then reads are refused;
+- capped: at most MAX_ROWS_READ rows per alert, then reads are refused (30 tool calls of 50 rows
+  could reach 1,500, so the cap binds before the tool budget does);
 - audited: every call is logged with the alert id, the arguments and how many rows it returned,
-  and `read_ids` holds every transaction id the agents were shown. The code checks accept only
-  citations from that set: an agent can cite only what it actually read.
+  `read_ids` holds every transaction id a tool returned and `profiles`/`sections` what profile
+  data was returned. The code checks accept only citations from those: an agent can cite only
+  what it actually read.
 
 Slice 3 would put this behind a Gateway over a graph or transaction store; the agents would not
 change. Card rows are left out (they are counted in `activity`), as in the snapshot.
 """
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import Any
 
-from agentic_bank.aml.data import Dataset, Txn
+from agentic_bank.aml.case_tools import untrusted
+from agentic_bank.aml.data import Customer, Dataset, Txn
 from agentic_bank.aml.rules import Alert
+from agentic_bank.aml.snapshot import _row as snapshot_row
+from agentic_bank.aml.snapshot import activity_summary
 
 PAGE_SIZE = 50
-MAX_ROWS_READ = 2_000  # per alert, across all calls
+MAX_ROWS_READ = 1_000  # per alert, across all calls
 
 
 def _row(t: Txn) -> dict[str, Any]:
-    return {
-        "txn_id": t.txn_id,
-        "ts": t.ts,
-        "customer_id": t.customer_id,
-        "type": t.type,
-        "direction": t.direction,
-        "amount_cents": t.amount_cents,
-        "counterparty_id": t.counterparty_id,
-        "memo_untrusted": t.memo,
-    }
+    return untrusted(snapshot_row(t))
+
+
+def kyc_of(c: Customer) -> dict[str, Any]:
+    return {k: v for k, v in asdict(c).items() if k not in ("customer_id", "name")}
 
 
 class GraphSource:
@@ -46,9 +46,10 @@ class GraphSource:
         self._alerts = alerts
         self.alert = next(a for a in alerts if a.alert_id == alert_id)
         self.log: list[dict[str, Any]] = []
-        self.read_ids: set[str] = set(self.alert.txn_ids)
+        self.read_ids: set[str] = set()  # ids a tool returned; the alert's arrive via get_alert
+        self.profiles: dict[str, dict[str, Any]] = {}  # customer id -> KYC fields returned
+        self.sections: set[tuple[str, str]] = set()  # (customer id, activity|prior_alerts)
         self.rows_read = 0
-        self._by_cp: dict[str, list[Txn]] | None = None
 
     # ---- bookkeeping ----------------------------------------------------------------------
     def _audit(self, tool: str, args: dict[str, Any], out: dict[str, Any], rows: list) -> dict:
@@ -58,6 +59,7 @@ class GraphSource:
         return out
 
     def _page(self, tool: str, args: dict[str, Any], txns: list[Txn], page: int) -> dict:
+        """The one place rows leave: paged, counted against the cap, recorded as read."""
         if self.rows_read >= MAX_ROWS_READ:
             return self._audit(tool, args, {"error": "read cap for this alert reached"}, [])
         page = max(0, int(page))
@@ -72,28 +74,21 @@ class GraphSource:
         }
         return self._audit(tool, args, out, chunk)
 
-    def _by_counterparty(self) -> dict[str, list[Txn]]:
-        if self._by_cp is None:
-            index: dict[str, list[Txn]] = defaultdict(list)
-            for t in self._ds.transactions:
-                if t.counterparty_id and t.type != "card":
-                    index[t.counterparty_id].append(t)
-            self._by_cp = dict(index)
-        return self._by_cp
-
     def _party_txns(self, party_id: str, start: str | None, end: str | None) -> list[Txn]:
         if party_id in self._ds.customers:
             rows = [t for t in self._ds.by_customer[party_id] if t.type != "card"]
         else:
-            rows = self._by_counterparty().get(party_id, [])
+            rows = self._ds.by_counterparty.get(party_id, [])
         lo, hi = start or "0000", (end or "9999") + "￿"  # dates compare as ISO strings
         return [t for t in rows if lo <= t.ts <= hi]
 
     # ---- reads ----------------------------------------------------------------------------
     def get_alert(self) -> dict[str, Any]:
         rows = [self._ds.by_id[i] for i in self.alert.txn_ids]
-        out = {**self.alert.to_dict(), "flagged": [_row(t) for t in rows]}
-        return self._audit("get_alert", {}, out, rows)
+        page = self._page("get_alert", {}, rows, 0)
+        if "error" in page:
+            return page
+        return {**self.alert.to_dict(), "flagged": page["rows"]}
 
     def transactions(
         self, party_id: str, start: str | None = None, end: str | None = None, page: int = 0
@@ -105,9 +100,8 @@ class GraphSource:
         t = self._ds.by_id.get(txn_id)
         if t is None or t.type == "card":
             return self._audit("transaction", {"txn_id": txn_id}, {"error": "not found"}, [])
-        self.read_ids.add(t.txn_id)
-        self.rows_read += 1
-        return self._audit("transaction", {"txn_id": txn_id}, _row(t), [t])
+        out = self._page("transaction", {"txn_id": txn_id}, [t], 0)
+        return out["rows"][0] if out.get("rows") else out
 
     def follow(self, txn_id: str, direction: str = "forward", hours: int = 72) -> dict[str, Any]:
         """One hop along the money. forward: where the money in this transaction went next;
@@ -120,7 +114,6 @@ class GraphSource:
         t = self._ds.by_id.get(txn_id)
         if t is None or t.type == "card":
             return self._audit("follow", args, {"error": "not found"}, [])
-        self.read_ids.add(t.txn_id)
         hours = max(1, min(int(hours), 24 * 14))
         at = datetime.fromisoformat(t.ts)
         forward = direction != "backward"
@@ -148,7 +141,9 @@ class GraphSource:
     def party(self, party_id: str) -> dict[str, Any]:
         """A customer's full KYC profile, or an external counterparty's name, kind and country."""
         if party_id in self._ds.customers:
-            out = {"kind": "customer", **asdict(self._ds.customers[party_id])}
+            c = self._ds.customers[party_id]
+            self.profiles[party_id] = kyc_of(c)
+            out = {"kind": "customer", "customer_id": party_id, "name": c.name, **kyc_of(c)}
         elif party_id in self._ds.counterparties:
             out = {"kind": "external_counterparty", **asdict(self._ds.counterparties[party_id])}
         else:
@@ -195,18 +190,12 @@ class GraphSource:
         mine = self._ds.by_customer.get(customer_id)
         if mine is None:
             return self._audit("activity", {"customer_id": customer_id}, {"error": "not found"}, [])
-        sums: dict[str, int] = defaultdict(int)
-        for t in mine:
-            sums[f"{t.type}_{t.direction}_cents"] += t.amount_cents
-        out = {
-            "customer_id": customer_id,
-            "transactions_90d": len(mine),
-            "by_type": dict(sorted(Counter(t.type for t in mine).items())),
-            "totals": dict(sorted(sums.items())),
-        }
+        self.sections.add((customer_id, "activity_summary"))
+        out = {"customer_id": customer_id, **activity_summary(mine)}
         return self._audit("activity", {"customer_id": customer_id}, out, [])
 
     def prior_alerts(self, customer_id: str) -> dict[str, Any]:
+        self.sections.add((customer_id, "prior_alerts"))
         prior = [
             a.to_dict()
             for a in self._alerts
@@ -215,3 +204,8 @@ class GraphSource:
         return self._audit(
             "prior_alerts", {"customer_id": customer_id}, {"prior_alerts": prior}, []
         )
+
+    def alert_kyc_read(self) -> tuple[dict[str, Any], set[str]]:
+        """What the agents read about the ALERT customer: KYC fields and sections, for `check`."""
+        cid = self.alert.customer_id
+        return self.profiles.get(cid, {}), {name for c, name in self.sections if c == cid}

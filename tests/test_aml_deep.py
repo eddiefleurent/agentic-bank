@@ -220,3 +220,82 @@ def test_depth_breakdown_and_repeat_aggregation():
 def test_fingerprint_depends_on_variant(variant):
     other = "deep" if variant == "base" else "base"
     assert harness.fingerprint("a", "m", variant) != harness.fingerprint("a", "m", other)
+
+
+# ---------------------------------------------------------------- review fixes (2026-11-12)
+
+
+@pytest.mark.parametrize("gen", [data.generate, deep.generate], ids=["base", "deep"])
+def test_benign_high_risk_counterparties_are_in_expected_countries(gen):
+    ds, labels = gen()
+    for c in labels["cases"]:
+        if c["verdict"] != "benign" or c["typology"] != "high_risk_jurisdiction":
+            continue
+        cust = ds.customers[c["primary_customer_id"]]
+        for i in c["evidence_txn_ids"]:
+            cp = ds.counterparties.get(ds.by_id[i].counterparty_id or "")
+            if cp and cp.country in data.HIGH_RISK_COUNTRIES and cust.notes:
+                assert cp.country in cust.expected_countries, (c["label_id"], cp.counterparty_id)
+
+
+def best_split(pairs):
+    """Accuracy of the best rule that predicts the label from one attribute value."""
+    values = {v for v, _ in pairs}
+    hits = sum(
+        max(sum(p == (v, "suspicious") for p in pairs), sum(p == (v, "benign") for p in pairs))
+        for v in values
+    )
+    return hits / len(pairs)
+
+
+@pytest.mark.parametrize("gen", [data.generate, deep.generate], ids=["base", "deep"])
+def test_no_single_kyc_attribute_gives_the_label_away(gen):
+    ds, labels = gen()
+    custs = [(ds.customers[c["primary_customer_id"]], c["verdict"]) for c in labels["cases"]]
+    attrs = {
+        "empty notes": lambda c: c.notes == "",
+        "risk rating": lambda c: c.risk_rating,
+        "opened in 2026": lambda c: c.account_open_date.startswith("2026"),
+    }
+    for name, f in attrs.items():
+        assert best_split([(f(c), v) for c, v in custs]) <= 0.70, name
+    incomes = sorted((c.declared_monthly_income_cents, v) for c, v in custs)
+    for cut, _ in incomes:
+        assert best_split([(i <= cut, v) for i, v in incomes]) <= 0.70, ("income", cut)
+
+
+def test_committed_base_labels_match_the_generator():
+    _, labels = data.generate()
+    committed = json.loads((Path(__file__).parent.parent / "evals/aml/labels.json").read_text())
+    assert committed == json.loads(json.dumps(labels))
+
+
+def test_follow_and_transaction_return_only_what_they_count():
+    _, ds, _ = world()
+    g = graph()
+    start = next(t for t in ds.transactions if t.type == "wire" and t.txn_id not in g.read_ids)
+    out = g.follow(start.txn_id, "forward", 1)
+    assert start.txn_id not in g.read_ids  # a guessed id is not made citable
+    assert {r["txn_id"] for r in out["rows"]} <= g.read_ids
+
+
+def test_single_transaction_reads_respect_the_cap(monkeypatch):
+    monkeypatch.setattr(graph_source, "MAX_ROWS_READ", 2)
+    _, ds, _ = world()
+    g = graph()
+    ids = [t.txn_id for t in ds.transactions if t.type != "card"][:3]
+    replies = [g.transaction(i) for i in ids]
+    assert "error" in replies[2] and ids[2] not in g.read_ids
+
+
+def test_graph_kyc_citations_need_the_profile_read():
+    _, ds, alerts = world()
+    case = deep_cases()[0]
+    g = GraphSource(ds, alerts, case.alert.alert_id)
+    g.get_alert()
+    kyc, sections = g.alert_kyc_read()
+    assert kyc == {} and sections == set()
+    g.party(case.alert.customer_id)
+    g.activity(case.alert.customer_id)
+    kyc, sections = g.alert_kyc_read()
+    assert "occupation" in kyc and sections == {"activity_summary"}

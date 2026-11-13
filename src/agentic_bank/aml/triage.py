@@ -154,11 +154,27 @@ def cited_ids(t: Triage) -> set[str]:
     return {i for f in factors for i in f.txn_ids} | set(t.instruction_memo_txn_ids)
 
 
-def check(answer: Any, known_ids: set[str], kyc_keys: set[str]) -> TriageOutcome:
+SECTIONS = frozenset({"activity_summary", "prior_alerts"})
+
+
+def _empty(value: Any) -> bool:
+    return value is None or value == "" or value == [] or value == {}
+
+
+def check(
+    answer: Any, known_ids: set[str], kyc: dict[str, Any], sections: set[str]
+) -> TriageOutcome:
     """Code checks after the model. Any answer that fails becomes escalate with the reason.
 
-    `known_ids`: the transaction ids the reviewer was shown (the snapshot's, or what the graph
-    tools returned); `kyc_keys`: the alert customer's KYC fields."""
+    known_ids: the transaction ids the reviewer was shown (the snapshot's, or what the graph tools
+    returned). kyc: the alert customer's KYC fields as the reviewer read them ({} if it never
+    read the profile). sections: which of activity_summary and prior_alerts it read.
+
+    - every cited transaction id was shown to the reviewer;
+    - every cited KYC field was read and is not empty (citing an empty `notes` cites nothing);
+    - escalate cites at least one transaction;
+    - close cites at least one transaction in a mitigating factor, and is refused when the
+      reviewer itself flagged a memo that tries to instruct it: that goes to a person."""
     if not isinstance(answer, Triage):
         try:
             answer = Triage.model_validate(answer)
@@ -171,23 +187,30 @@ def check(answer: Any, known_ids: set[str], kyc_keys: set[str]) -> TriageOutcome
     unknown = sorted(cited_ids(answer) - known_ids)
     if unknown:
         return failed(f"cited ids not in case: {', '.join(unknown[:5])}")
-    present = kyc_keys | {"activity_summary", "prior_alerts"}
     fields = {f for x in answer.risk_factors + answer.mitigating_factors for f in x.kyc_fields}
-    if not fields <= present:
-        return failed(f"cited fields not in case: {', '.join(sorted(fields - present))}")
+    bad = sorted(
+        f
+        for f in fields
+        if (f in SECTIONS and f not in sections)
+        or (f not in SECTIONS and (f not in kyc or _empty(kyc[f])))
+    )
+    if bad:
+        return failed(f"cited fields not read or empty: {', '.join(bad)}")
     advice = answer.model_dump()
     if answer.recommendation == "escalate":
         if not any(f.txn_ids for f in answer.risk_factors):
             return TriageOutcome("escalate", "escalate without a cited transaction", advice)
         return TriageOutcome("escalate", None, advice)
-    if not any(f.txn_ids or f.kyc_fields for f in answer.mitigating_factors):
-        return TriageOutcome("escalate", "close without a cited reason", advice)
+    if answer.instruction_memo_txn_ids:
+        return TriageOutcome("escalate", "close blocked: instruction memo flagged", advice)
+    if not any(f.txn_ids for f in answer.mitigating_factors):
+        return TriageOutcome("escalate", "close without a cited transaction", advice)
     return TriageOutcome("close", None, advice)
 
 
 def check_snapshot(answer: Any, snapshot: dict[str, Any]) -> TriageOutcome:
-    """`check` against what a snapshot holds."""
-    return check(answer, txn_ids(snapshot), set(snapshot["kyc"]))
+    """`check` against what a snapshot holds (the reviewer was shown all of it)."""
+    return check(answer, txn_ids(snapshot), snapshot["kyc"], set(SECTIONS))
 
 
 def case_text(snapshot: dict[str, Any]) -> str:
@@ -281,6 +304,14 @@ def run_baseline(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> Triag
     return run
 
 
+def run_heuristic(_bedrock: Any, _model_id: str, snapshot: dict[str, Any]) -> TriageRun:
+    """No model: escalate unless the KYC notes say something. A floor for the eval: a reviewer
+    that cannot beat this is not reading the case. (In slice 2 data it matched the single call,
+    which is how the label tells in the profiles were found.)"""
+    rec: Literal["close", "escalate"] = "close" if snapshot["kyc"].get("notes") else "escalate"
+    return TriageRun(outcome=TriageOutcome(rec))
+
+
 def log(event: str, run: TriageRun) -> None:
     line = {
         "event": event,
@@ -300,6 +331,8 @@ def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
     snapshot), or `agents-graph` (explores the whole dataset; `world` = (dataset, alerts))."""
     if name == "baseline":
         return run_baseline
+    if name == "heuristic":
+        return run_heuristic
     if name == "agents":
         from agentic_bank.aml.agents import run_agents  # Strands: optional dependency group
 
@@ -310,4 +343,6 @@ def select(name: str, world: tuple[Any, Any] | None = None) -> Any:
         if world is None:
             raise ValueError("agents-graph needs the dataset and alerts")
         return graph_reviewer(*world)
-    raise ValueError(f"unknown AML reviewer {name!r}; expected baseline, agents or agents-graph")
+    raise ValueError(
+        f"unknown AML reviewer {name!r}; expected heuristic, baseline, agents or agents-graph"
+    )

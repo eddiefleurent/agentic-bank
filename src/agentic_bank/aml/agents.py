@@ -21,7 +21,7 @@ returns `escalate` with a failure reason.
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
 from botocore.config import Config
@@ -33,12 +33,13 @@ from strands.types.agent import Limits
 
 from agentic_bank.aml import case_tools as ct
 from agentic_bank.aml.case_tools import CaseSource, SnapshotSource, txn_ids
-from agentic_bank.aml.data import Customer, Dataset
+from agentic_bank.aml.data import Dataset
 from agentic_bank.aml.graph_source import GraphSource
 from agentic_bank.aml.rules import Alert
 from agentic_bank.aml.triage import (
     GUIDANCE,
     RULES,
+    SECTIONS,
     Triage,
     TriageOutcome,
     TriageRun,
@@ -520,7 +521,7 @@ def triage(
 
 def triage_snapshot(bedrock: Any, model_id: str, snapshot: dict[str, Any], **kw: Any) -> TriageRun:
     src = SnapshotSource(snapshot)
-    ids, keys = txn_ids(snapshot), set(snapshot["kyc"])
+    ids, kyc = txn_ids(snapshot), snapshot["kyc"]
     return triage(
         bedrock,
         model_id,
@@ -528,7 +529,7 @@ def triage_snapshot(bedrock: Any, model_id: str, snapshot: dict[str, Any], **kw:
         mode=SNAPSHOT,
         flow=flow_tools(src),
         kyc=kyc_tools(src),
-        checker=lambda a: check(a, ids, keys),
+        checker=lambda a: check(a, ids, kyc, set(SECTIONS)),
         **kw,
     )
 
@@ -536,9 +537,6 @@ def triage_snapshot(bedrock: Any, model_id: str, snapshot: dict[str, Any], **kw:
 def run_agents(bedrock: Any, model_id: str, snapshot: dict[str, Any]) -> TriageRun:
     """Snapshot mode. Same signature as `triage.run_baseline`."""
     return triage_snapshot(bedrock, model_id, snapshot)
-
-
-KYC_KEYS = {f.name for f in fields(Customer)} - {"customer_id", "name"}
 
 
 def triage_graph(
@@ -554,7 +552,7 @@ def triage_graph(
         mode=GRAPH,
         flow=graph_flow_tools(g),
         kyc=graph_kyc_tools(g),
-        checker=lambda a: check(a, g.read_ids, KYC_KEYS),
+        checker=lambda a: check(a, g.read_ids, *g.alert_kyc_read()),
         **kw,
     )
     run.audit = {

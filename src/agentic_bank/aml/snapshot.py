@@ -52,6 +52,28 @@ def _row(t: Txn, hop: int | None = None) -> dict[str, Any]:
     return d
 
 
+def activity_summary(mine: list[Txn]) -> dict[str, Any]:
+    """One customer's 90-day totals (card spend only counted here). Shared with the graph tools."""
+    return {
+        "transactions_90d": len(mine),
+        "by_type": dict(sorted(Counter(t.type for t in mine).items())),
+        "cash_in_cents": sum(t.amount_cents for t in mine if t.type == "cash_deposit"),
+        "wire_in_cents": sum(
+            t.amount_cents for t in mine if t.type == "wire" and t.direction == "in"
+        ),
+        "wire_out_cents": sum(
+            t.amount_cents for t in mine if t.type == "wire" and t.direction == "out"
+        ),
+        "p2p_in_cents": sum(
+            t.amount_cents for t in mine if t.type == "p2p" and t.direction == "in"
+        ),
+        "p2p_out_cents": sum(
+            t.amount_cents for t in mine if t.type == "p2p" and t.direction == "out"
+        ),
+        "card_spend_cents": sum(t.amount_cents for t in mine if t.type == "card"),
+    }
+
+
 def _linked_customers(txns: list[Txn], ds: Dataset) -> list[str]:
     out: list[str] = []
     for t in txns:
@@ -111,19 +133,7 @@ def build_case_snapshot(
     cp_ids = sorted(
         {t.counterparty_id for t in kept_txns if t.counterparty_id in ds.counterparties}
     )
-    mine = ds.by_customer[alert.customer_id]
-    summary = {
-        "transactions_90d": len(mine),
-        "by_type": dict(sorted(Counter(t.type for t in mine).items())),
-        "cash_in_cents": sum(t.amount_cents for t in mine if t.type == "cash_deposit"),
-        "wire_in_cents": sum(
-            t.amount_cents for t in mine if t.type == "wire" and t.direction == "in"
-        ),
-        "wire_out_cents": sum(
-            t.amount_cents for t in mine if t.type == "wire" and t.direction == "out"
-        ),
-        "card_spend_cents": sum(t.amount_cents for t in mine if t.type == "card"),
-    }
+    summary = activity_summary(ds.by_customer[alert.customer_id])
     prior = [
         a
         for a in (all_alerts or [])

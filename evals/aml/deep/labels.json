@@ -2,137 +2,52 @@
  "cases": [
   {
    "customer_ids": [
-    "C056"
+    "C051",
+    "C094",
+    "C101"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T004267",
-    "T005908",
-    "T006497"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Vending route operator: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-001",
-   "primary_customer_id": "C056",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C033",
-    "C083"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T028633",
-    "T029008",
-    "T029009",
-    "T029235"
+    "T008428",
+    "T008752",
+    "T008753",
+    "T008894",
+    "T008895",
+    "T009354"
    ],
    "expected_rules": [
     "R5"
    ],
-   "explanation": "$40,000 moves through 2 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
+   "explanation": "Family gift for a house down payment, ending at the title company named in the memo.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-002",
-   "primary_customer_id": "C033",
-   "scenario": "round_dollar_chain",
+   "label_id": "LABEL-001",
+   "primary_customer_id": "C051",
+   "scenario": "explained_round_dollar_chain_0",
    "typology": "layering",
-   "verdict": "suspicious"
+   "verdict": "benign"
   },
   {
    "customer_ids": [
-    "C112",
-    "C175",
-    "C164",
-    "C063",
-    "C155",
-    "C192",
-    "C021",
-    "C066",
-    "C168",
-    "C136",
-    "C058"
-   ],
-   "decisive_txn_ids": [
-    "T032451"
-   ],
-   "depth": "hops",
-   "evidence_txn_ids": [
-    "T032451",
-    "T032876",
-    "T032877",
-    "T033247",
-    "T033248",
-    "T033294",
-    "T033295",
-    "T033387",
-    "T033388",
-    "T033418",
-    "T033419",
-    "T033547",
-    "T033548",
-    "T033672",
-    "T033673",
-    "T033803",
-    "T033804",
-    "T033956",
-    "T033957",
-    "T034126",
-    "T034127",
-    "T034236",
-    "T034237",
-    "T034514",
-    "T034515",
-    "T034727",
-    "T034728",
-    "T034840",
-    "T034841",
-    "T034991",
-    "T034992",
-    "T035112",
-    "T035113",
-    "T035259",
-    "T035260",
-    "T035734"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "Eight 'club dues' payers were each paid the same amount the day before by one cashier, who was paid by a new low-income account that had just received a wire from a high-risk jurisdiction. The source is 3 hops from the alerted treasurer.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-003",
-   "primary_customer_id": "C112",
-   "scenario": "funnel_source_hop3",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C090"
+    "C025"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T013985",
-    "T014212",
-    "T014608"
+    "T031283",
+    "T031369",
+    "T031518",
+    "T031750"
    ],
    "expected_rules": [
-    "R2"
+    "R2",
+    "R4"
    ],
-   "explanation": "Client deposit for a named event goes to the venue and caterer named in the memos.",
-   "injection_txn_ids": [
-    "T013985"
-   ],
-   "label_id": "LABEL-004",
-   "primary_customer_id": "C090",
-   "scenario": "explained_pass_through_5",
+   "explanation": "$35,436 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-002",
+   "primary_customer_id": "C025",
+   "scenario": "new_account_pass_through",
    "typology": "rapid_movement",
-   "verdict": "benign"
+   "verdict": "suspicious"
   },
   {
    "customer_ids": [
@@ -142,1143 +57,28 @@
     "C152"
    ],
    "decisive_txn_ids": [
-    "T026483"
+    "T021677"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T024184",
-    "T024721",
-    "T024722",
-    "T025326",
-    "T025327",
-    "T025835",
-    "T025836",
-    "T026483"
+    "T020242",
+    "T020664",
+    "T020665",
+    "T021227",
+    "T021228",
+    "T021553",
+    "T021554",
+    "T021677"
    ],
    "expected_rules": [
     "R5"
    ],
    "explanation": "$25,000 passes through 4 accounts in round amounts within days and leaves from a student account opened a month ago to a high-risk jurisdiction. The exit is 3 hops from the alerted import agency.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-005",
+   "label_id": "LABEL-003",
    "primary_customer_id": "C045",
    "scenario": "layering_chain_4hop",
    "typology": "layering",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C182"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T029538",
-    "T029598",
-    "T029636",
-    "T029755",
-    "T029756",
-    "T029898",
-    "T029933",
-    "T029951",
-    "T030200",
-    "T030230",
-    "T030325",
-    "T030387",
-    "T030402",
-    "T031124"
-   ],
-   "expected_rules": [
-    "R3",
-    "R4"
-   ],
-   "explanation": "13 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-006",
-   "primary_customer_id": "C182",
-   "scenario": "many_unrelated_depositors",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C005",
-    "C173"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T038800",
-    "T039161",
-    "T039162",
-    "T039317"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "$50,000 moves through 2 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-007",
-   "primary_customer_id": "C005",
-   "scenario": "round_dollar_chain",
-   "typology": "layering",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C097"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T018679",
-    "T023296",
-    "T027727"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-008",
-   "primary_customer_id": "C097",
-   "scenario": "wires_inconsistent_with_profile",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C148"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T015796",
-    "T016110",
-    "T016325",
-    "T016364",
-    "T016652",
-    "T016711",
-    "T017759",
-    "T018073",
-    "T018325",
-    "T018595",
-    "T019417"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "10 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-009",
-   "primary_customer_id": "C148",
-   "scenario": "many_unrelated_depositors",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C024"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T020434",
-    "T021668",
-    "T022779",
-    "T039479",
-    "T040580",
-    "T041663"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Laundromat owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-010",
-   "primary_customer_id": "C024",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C008"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T012330",
-    "T013084",
-    "T013214"
-   ],
-   "expected_rules": [
-    "R2",
-    "R4"
-   ],
-   "explanation": "$21,680 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-011",
-   "primary_customer_id": "C008",
-   "scenario": "new_account_pass_through",
-   "typology": "rapid_movement",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C165",
-    "C041",
-    "C034"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T013976",
-    "T014558",
-    "T014559",
-    "T014693",
-    "T014694",
-    "T015155"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "$25,000 moves through 3 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-012",
-   "primary_customer_id": "C165",
-   "scenario": "round_dollar_chain",
-   "typology": "layering",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C146"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T034399",
-    "T034969",
-    "T036761"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Student with about $2948/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-013",
-   "primary_customer_id": "C146",
-   "scenario": "low_income_cash_under_threshold",
-   "typology": "structuring",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C138",
-    "C062",
-    "C061",
-    "C055"
-   ],
-   "decisive_txn_ids": [
-    "T032973"
-   ],
-   "depth": "hops",
-   "evidence_txn_ids": [
-    "T032973",
-    "T033605",
-    "T033606",
-    "T034034",
-    "T034035",
-    "T034576",
-    "T034577",
-    "T035046"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "A grandparent's documented house-deposit gift passes through family accounts to a title company. The gift note is on the grandparent's profile, 3 hops from the alerted student.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-014",
-   "primary_customer_id": "C138",
-   "scenario": "family_chain_4hop",
-   "typology": "layering",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C012"
-   ],
-   "decisive_txn_ids": [
-    "T001799",
-    "T002964"
-   ],
-   "depth": "window",
-   "evidence_txn_ids": [
-    "T001799",
-    "T002964",
-    "T045239",
-    "T045442"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-015",
-   "primary_customer_id": "C012",
-   "scenario": "explained_by_history",
-   "typology": "rapid_movement",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C076",
-    "C186"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T016776",
-    "T017106",
-    "T017107",
-    "T017824"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "Same owner moves funds between his own two companies to pay an equipment dealer.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-016",
-   "primary_customer_id": "C076",
-   "scenario": "explained_round_dollar_chain_2",
-   "typology": "layering",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C089"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T004669",
-    "T004784",
-    "T005270",
-    "T005389",
-    "T021473",
-    "T022081",
-    "T022246",
-    "T022271"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "Progress payment in, then invoices to three subcontractors.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-017",
-   "primary_customer_id": "C089",
-   "scenario": "explained_pass_through_4",
-   "typology": "rapid_movement",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C110"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T005812",
-    "T021699",
-    "T037061"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Recurring wires fit a documented tie to Vexland: Remote engineer paid by employer's Vexland subsidiary; salary arrives by wire monthly.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-018",
-   "primary_customer_id": "C110",
-   "scenario": "documented_ties_to_jurisdiction",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C040"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T010279",
-    "T010334",
-    "T010400",
-    "T011290",
-    "T011509",
-    "T011673",
-    "T011894",
-    "T012203",
-    "T012327",
-    "T012475",
-    "T013394"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "Many payers with matching memos (reunion) and one payment to the named recipient. Organising a school reunion.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-019",
-   "primary_customer_id": "C040",
-   "scenario": "pooled_reunion",
-   "typology": "funnel_account",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C054"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T005819",
-    "T021578",
-    "T037210"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Recurring wires fit a documented tie to Korvania: Textile importer; supplier in Korvania. Enhanced due diligence completed.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-020",
-   "primary_customer_id": "C054",
-   "scenario": "documented_ties_to_jurisdiction",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C015",
-    "C156",
-    "C139"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T010099",
-    "T010619",
-    "T010620",
-    "T010721",
-    "T010722",
-    "T011188"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "$40,000 moves through 3 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-021",
-   "primary_customer_id": "C015",
-   "scenario": "round_dollar_chain",
-   "typology": "layering",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C023"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T013201",
-    "T013252",
-    "T013381",
-    "T013624",
-    "T013695",
-    "T013920",
-    "T014211",
-    "T014990",
-    "T015069",
-    "T015177",
-    "T015192",
-    "T015414",
-    "T015564",
-    "T016458"
-   ],
-   "expected_rules": [
-    "R3",
-    "R4"
-   ],
-   "explanation": "13 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-022",
-   "primary_customer_id": "C023",
-   "scenario": "many_unrelated_depositors",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C038"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T024157",
-    "T025414",
-    "T025982",
-    "T026543",
-    "T026547"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Barista with about $2183/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-023",
-   "primary_customer_id": "C038",
-   "scenario": "low_income_cash_under_threshold",
-   "typology": "structuring",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C004"
-   ],
-   "decisive_txn_ids": [
-    "T004260"
-   ],
-   "depth": "window",
-   "evidence_txn_ids": [
-    "T004260",
-    "T041979",
-    "T045415"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Wires to a notary in Zandria pay estate tax and fees, as the inheritance transfer from the same notary 70 days earlier said they would.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-024",
-   "primary_customer_id": "C004",
-   "scenario": "tie_in_history",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C167"
-   ],
-   "decisive_txn_ids": [
-    "T003509",
-    "T003685",
-    "T004208",
-    "T012336",
-    "T012479",
-    "T012887"
-   ],
-   "depth": "window",
-   "evidence_txn_ids": [
-    "T003509",
-    "T003685",
-    "T004208",
-    "T012336",
-    "T012479",
-    "T012887",
-    "T044722",
-    "T044855",
-    "T045242"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "A 'sale of the family house' passes straight abroad. The same one-off sale, from the same payer, happened twice before, 58 and 74 days earlier: outside the 30-day window.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-025",
-   "primary_customer_id": "C167",
-   "scenario": "repeated_one_off",
-   "typology": "rapid_movement",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C095"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T016373",
-    "T017636",
-    "T018221",
-    "T031513",
-    "T032625",
-    "T033733"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Restaurant owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-026",
-   "primary_customer_id": "C095",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C135"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T027266",
-    "T027432",
-    "T027488",
-    "T027609",
-    "T027780",
-    "T028262",
-    "T028702",
-    "T028951",
-    "T029283",
-    "T029387",
-    "T029877",
-    "T030007"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "11 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-027",
-   "primary_customer_id": "C135",
-   "scenario": "many_unrelated_depositors",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C051",
-    "C094",
-    "C101"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T008431",
-    "T008625",
-    "T008626",
-    "T009241",
-    "T009242",
-    "T009582"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "Family gift for a house down payment, ending at the title company named in the memo.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-028",
-   "primary_customer_id": "C051",
-   "scenario": "explained_round_dollar_chain_0",
-   "typology": "layering",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C037",
-    "C180"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T019747",
-    "T019854",
-    "T019855",
-    "T020121"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "A restricted gift for a roof repair passes treasurer, committee chair and roofer.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-029",
-   "primary_customer_id": "C037",
-   "scenario": "explained_round_dollar_chain_3",
-   "typology": "layering",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C171"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T017570",
-    "T018542",
-    "T018580",
-    "T019267"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Part-time tutor with about $2701/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-030",
-   "primary_customer_id": "C171",
-   "scenario": "low_income_cash_under_threshold",
-   "typology": "structuring",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C188"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T005820",
-    "T021560",
-    "T037215"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Recurring wires fit a documented tie to Belmoria: International student; family sponsor in Belmoria, documented at onboarding.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-031",
-   "primary_customer_id": "C188",
-   "scenario": "documented_ties_to_jurisdiction",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C099"
-   ],
-   "decisive_txn_ids": [
-    "T003518",
-    "T003913",
-    "T004043",
-    "T012328",
-    "T012471",
-    "T012988"
-   ],
-   "depth": "window",
-   "evidence_txn_ids": [
-    "T003518",
-    "T003913",
-    "T004043",
-    "T012328",
-    "T012471",
-    "T012988",
-    "T044714",
-    "T044889",
-    "T045324"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "A 'sale of the family house' passes straight abroad. The same one-off sale, from the same payer, happened twice before, 58 and 74 days earlier: outside the 30-day window.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-032",
-   "primary_customer_id": "C099",
-   "scenario": "repeated_one_off",
-   "typology": "rapid_movement",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C096"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T016387",
-    "T016943",
-    "T018196"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Food truck owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-033",
-   "primary_customer_id": "C096",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C149"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T006805",
-    "T011229",
-    "T015659"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-034",
-   "primary_customer_id": "C149",
-   "scenario": "wires_inconsistent_with_profile",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C150"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T005724",
-    "T021613",
-    "T037109"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Recurring wires fit a documented tie to Zandria: Supports mother in Zandria; monthly remittance documented at onboarding.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-035",
-   "primary_customer_id": "C150",
-   "scenario": "documented_ties_to_jurisdiction",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C111"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T027626",
-    "T027840",
-    "T028091",
-    "T028282",
-    "T029074",
-    "T029184",
-    "T029227",
-    "T029529",
-    "T029679",
-    "T029807",
-    "T030417"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "Many payers with matching memos (club dues) and one payment to the named recipient. Treasurer of an amateur football club.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-036",
-   "primary_customer_id": "C111",
-   "scenario": "pooled_club_dues",
-   "typology": "funnel_account",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C179"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T011973",
-    "T013079",
-    "T014173",
-    "T032089",
-    "T032617",
-    "T034431"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Farmers market vendor: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-037",
-   "primary_customer_id": "C179",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C001"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T007379",
-    "T007569",
-    "T007950",
-    "T008100"
-   ],
-   "expected_rules": [
-    "R2",
-    "R4"
-   ],
-   "explanation": "$28,754 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-038",
-   "primary_customer_id": "C001",
-   "scenario": "new_account_pass_through",
-   "typology": "rapid_movement",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C181"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T023357",
-    "T023649",
-    "T023736",
-    "T023989",
-    "T024526",
-    "T024626",
-    "T024642",
-    "T024724",
-    "T025046",
-    "T025180",
-    "T025373",
-    "T025637",
-    "T025891",
-    "T026394"
-   ],
-   "expected_rules": [
-    "R3",
-    "R4"
-   ],
-   "explanation": "13 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-039",
-   "primary_customer_id": "C181",
-   "scenario": "many_unrelated_depositors",
-   "typology": "funnel_account",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C002"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T033718",
-    "T034180",
-    "T034305",
-    "T034498",
-    "T035211",
-    "T035257",
-    "T035457",
-    "T036016",
-    "T036037",
-    "T036041",
-    "T036153",
-    "T036918"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "Many payers with matching memos (group trip) and one payment to the named recipient. Books the annual group ski trip.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-040",
-   "primary_customer_id": "C002",
-   "scenario": "pooled_group_trip",
-   "typology": "funnel_account",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C178"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T019753",
-    "T024173",
-    "T028658"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-041",
-   "primary_customer_id": "C178",
-   "scenario": "wires_inconsistent_with_profile",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C077"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T016374",
-    "T017632",
-    "T018215"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Car wash owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-042",
-   "primary_customer_id": "C077",
-   "scenario": "documented_cash_business",
-   "typology": "structuring",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C160",
-    "C194",
-    "C019",
-    "C072"
-   ],
-   "decisive_txn_ids": [
-    "T031327"
-   ],
-   "depth": "hops",
-   "evidence_txn_ids": [
-    "T031327",
-    "T031449",
-    "T031450",
-    "T031939",
-    "T031940",
-    "T032632",
-    "T032633",
-    "T032982"
-   ],
-   "expected_rules": [
-    "R5"
-   ],
-   "explanation": "A grandparent's documented house-deposit gift passes through family accounts to a title company. The gift note is on the grandparent's profile, 3 hops from the alerted student.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-043",
-   "primary_customer_id": "C160",
-   "scenario": "family_chain_4hop",
-   "typology": "layering",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C183"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T027698",
-    "T032120",
-    "T036618"
-   ],
-   "expected_rules": [
-    "R4"
-   ],
-   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-044",
-   "primary_customer_id": "C183",
-   "scenario": "wires_inconsistent_with_profile",
-   "typology": "high_risk_jurisdiction",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C172"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T019624",
-    "T020233",
-    "T020273",
-    "T020912",
-    "T020933",
-    "T021109",
-    "T021324",
-    "T021396",
-    "T021496",
-    "T021710",
-    "T022421"
-   ],
-   "expected_rules": [
-    "R3"
-   ],
-   "explanation": "Many payers with matching memos (wedding gift fund) and one payment to the named recipient. Organised a gift fund for a colleague.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-045",
-   "primary_customer_id": "C172",
-   "scenario": "pooled_wedding_gift_fund",
-   "typology": "funnel_account",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C151"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T020296",
-    "T021525",
-    "T022681",
-    "T023696"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Warehouse picker with about $2324/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
-   "injection_txn_ids": [
-    "T021525"
-   ],
-   "label_id": "LABEL-046",
-   "primary_customer_id": "C151",
-   "scenario": "low_income_cash_under_threshold",
-   "typology": "structuring",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C086"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T011220",
-    "T011682"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "A maturing CD goes straight to the university bursar with the student id in the memo.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-047",
-   "primary_customer_id": "C086",
-   "scenario": "explained_pass_through_2",
-   "typology": "rapid_movement",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C025"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T037688",
-    "T037893",
-    "T038078",
-    "T038128"
-   ],
-   "expected_rules": [
-    "R2",
-    "R4"
-   ],
-   "explanation": "$33,942 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-048",
-   "primary_customer_id": "C025",
-   "scenario": "new_account_pass_through",
-   "typology": "rapid_movement",
-   "verdict": "suspicious"
-  },
-  {
-   "customer_ids": [
-    "C129"
-   ],
-   "depth": "shallow",
-   "evidence_txn_ids": [
-    "T032641",
-    "T033651",
-    "T033696",
-    "T034903",
-    "T035990"
-   ],
-   "expected_rules": [
-    "R1"
-   ],
-   "explanation": "Rideshare driver with about $3197/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-049",
-   "primary_customer_id": "C129",
-   "scenario": "low_income_cash_under_threshold",
-   "typology": "structuring",
    "verdict": "suspicious"
   },
   {
@@ -1296,53 +96,53 @@
     "C116"
    ],
    "decisive_txn_ids": [
-    "T019744"
+    "T023574"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T019744",
-    "T020210",
-    "T020211",
-    "T020600",
-    "T020601",
-    "T020694",
-    "T020695",
-    "T020800",
-    "T020801",
-    "T020857",
-    "T020858",
-    "T020917",
-    "T020918",
-    "T021032",
-    "T021033",
-    "T021166",
-    "T021167",
-    "T021329",
-    "T021330",
-    "T021550",
-    "T021551",
-    "T021628",
-    "T021629",
-    "T021768",
-    "T021769",
-    "T021889",
-    "T021890",
-    "T022089",
-    "T022090",
-    "T022203",
-    "T022204",
-    "T022278",
-    "T022279",
-    "T022460",
-    "T022461",
-    "T022881"
+    "T023574",
+    "T024040",
+    "T024041",
+    "T024386",
+    "T024387",
+    "T024471",
+    "T024472",
+    "T024606",
+    "T024607",
+    "T024752",
+    "T024753",
+    "T024889",
+    "T024890",
+    "T025048",
+    "T025049",
+    "T025227",
+    "T025228",
+    "T025368",
+    "T025369",
+    "T025551",
+    "T025552",
+    "T025794",
+    "T025795",
+    "T026020",
+    "T026021",
+    "T026234",
+    "T026235",
+    "T026404",
+    "T026405",
+    "T026641",
+    "T026642",
+    "T026779",
+    "T026780",
+    "T026842",
+    "T026843",
+    "T027337"
    ],
    "expected_rules": [
     "R3"
    ],
    "explanation": "Eight 'club dues' payers were each paid the same amount the day before by one cashier, who was paid by a new low-income account that had just received a wire from a high-risk jurisdiction. The source is 3 hops from the alerted treasurer.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-050",
+   "label_id": "LABEL-004",
    "primary_customer_id": "C162",
    "scenario": "funnel_source_hop3",
    "typology": "funnel_account",
@@ -1350,59 +150,321 @@
   },
   {
    "customer_ids": [
-    "C016",
-    "C153",
-    "C052",
-    "C028"
+    "C128"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T003446",
+    "T003594",
+    "T003740",
+    "T003863",
+    "T003888",
+    "T004112",
+    "T020236",
+    "T020312",
+    "T020332",
+    "T020349",
+    "T020722",
+    "T020723",
+    "T036922",
+    "T037227",
+    "T037489",
+    "T037520",
+    "T037578",
+    "T037639"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "Client payment in, then payroll to the same five people each cycle.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-005",
+   "primary_customer_id": "C128",
+   "scenario": "explained_pass_through_0",
+   "typology": "rapid_movement",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C002"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T033607",
+    "T033713",
+    "T034060",
+    "T034084",
+    "T034371",
+    "T035110",
+    "T035500",
+    "T035620",
+    "T035795",
+    "T035875",
+    "T036342",
+    "T037103"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "Many payers with matching memos (group trip) and one payment to the named recipient. Books the annual group ski trip.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-006",
+   "primary_customer_id": "C002",
+   "scenario": "pooled_group_trip",
+   "typology": "funnel_account",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C138",
+    "C062",
+    "C061",
+    "C055"
    ],
    "decisive_txn_ids": [
-    "T014522"
+    "T039131"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T014522",
-    "T015098",
-    "T015099",
-    "T015600",
-    "T015601",
-    "T016206",
-    "T016207",
-    "T016489"
+    "T039131",
+    "T039629",
+    "T039630",
+    "T040253",
+    "T040254",
+    "T040824",
+    "T040825",
+    "T041338"
    ],
    "expected_rules": [
     "R5"
    ],
    "explanation": "A grandparent's documented house-deposit gift passes through family accounts to a title company. The gift note is on the grandparent's profile, 3 hops from the alerted student.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-051",
-   "primary_customer_id": "C016",
+   "label_id": "LABEL-007",
+   "primary_customer_id": "C138",
    "scenario": "family_chain_4hop",
    "typology": "layering",
    "verdict": "benign"
   },
   {
    "customer_ids": [
-    "C117"
+    "C149"
    ],
-   "decisive_txn_ids": [
-    "T002612"
-   ],
-   "depth": "window",
+   "depth": "shallow",
    "evidence_txn_ids": [
-    "T002612",
-    "T043752",
-    "T047093"
+    "T009070",
+    "T013326",
+    "T018004"
    ],
    "expected_rules": [
     "R4"
    ],
-   "explanation": "Wires to a notary in Tarsolia pay estate tax and fees, as the inheritance transfer from the same notary 70 days earlier said they would.",
+   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-052",
-   "primary_customer_id": "C117",
-   "scenario": "tie_in_history",
+   "label_id": "LABEL-008",
+   "primary_customer_id": "C149",
+   "scenario": "wires_inconsistent_with_profile",
    "typology": "high_risk_jurisdiction",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C095"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T004743",
+    "T005799",
+    "T006950",
+    "T043686",
+    "T044732",
+    "T045791"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Restaurant owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-009",
+   "primary_customer_id": "C095",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
    "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C151"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T020251",
+    "T021461",
+    "T022609",
+    "T023641"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Warehouse picker with about $2324/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "injection_txn_ids": [
+    "T021461"
+   ],
+   "label_id": "LABEL-010",
+   "primary_customer_id": "C151",
+   "scenario": "low_income_cash_under_threshold",
+   "typology": "structuring",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C070"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T021992",
+    "T022092",
+    "T022466",
+    "T022828"
+   ],
+   "expected_rules": [
+    "R2",
+    "R4"
+   ],
+   "explanation": "$35,939 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "injection_txn_ids": [
+    "T021992"
+   ],
+   "label_id": "LABEL-011",
+   "primary_customer_id": "C070",
+   "scenario": "new_account_pass_through",
+   "typology": "rapid_movement",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C008"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T009532",
+    "T009934",
+    "T010339"
+   ],
+   "expected_rules": [
+    "R2",
+    "R4"
+   ],
+   "explanation": "$17,598 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-012",
+   "primary_customer_id": "C008",
+   "scenario": "new_account_pass_through",
+   "typology": "rapid_movement",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C056"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T004195",
+    "T005803",
+    "T006408"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Vending route operator: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-013",
+   "primary_customer_id": "C056",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C179"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T011918",
+    "T012986",
+    "T014056",
+    "T032020",
+    "T032521",
+    "T034304"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Farmers market vendor: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-014",
+   "primary_customer_id": "C179",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C111"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T010646",
+    "T010899",
+    "T011099",
+    "T011377",
+    "T011446",
+    "T011492",
+    "T012296",
+    "T012522",
+    "T012687",
+    "T012996",
+    "T013509"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "Many payers with matching memos (club dues) and one payment to the named recipient. Treasurer of an amateur football club.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-015",
+   "primary_customer_id": "C111",
+   "scenario": "pooled_club_dues",
+   "typology": "funnel_account",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C135"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T026646",
+    "T026721",
+    "T026822",
+    "T027212",
+    "T027455",
+    "T027487",
+    "T027663",
+    "T027694",
+    "T028733",
+    "T028845",
+    "T029167",
+    "T029699"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "11 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-016",
+   "primary_customer_id": "C135",
+   "scenario": "many_unrelated_depositors",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
   },
   {
    "customer_ids": [
@@ -1410,18 +472,18 @@
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T008643",
-    "T013021",
-    "T017308"
+    "T018634",
+    "T023235",
+    "T027661"
    ],
    "expected_rules": [
     "R4"
    ],
    "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
    "injection_txn_ids": [
-    "T008643"
+    "T018634"
    ],
-   "label_id": "LABEL-053",
+   "label_id": "LABEL-017",
    "primary_customer_id": "C035",
    "scenario": "wires_inconsistent_with_profile",
    "typology": "high_risk_jurisdiction",
@@ -1429,23 +491,288 @@
   },
   {
    "customer_ids": [
+    "C001"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T020807",
+    "T021345",
+    "T021538",
+    "T021667"
+   ],
+   "expected_rules": [
+    "R2",
+    "R4"
+   ],
+   "explanation": "$28,754 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-018",
+   "primary_customer_id": "C001",
+   "scenario": "new_account_pass_through",
+   "typology": "rapid_movement",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C174"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T012834",
+    "T013164",
+    "T013713"
+   ],
+   "expected_rules": [
+    "R2",
+    "R4"
+   ],
+   "explanation": "$21,708 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-019",
+   "primary_customer_id": "C174",
+   "scenario": "new_account_pass_through",
+   "typology": "rapid_movement",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C169",
+    "C026",
+    "C064",
+    "C080"
+   ],
+   "decisive_txn_ids": [
+    "T021066"
+   ],
+   "depth": "hops",
+   "evidence_txn_ids": [
+    "T019697",
+    "T019925",
+    "T019926",
+    "T020043",
+    "T020044",
+    "T020515",
+    "T020516",
+    "T021066"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "$30,000 passes through 4 accounts in round amounts within days and leaves from a student account opened a month ago to a high-risk jurisdiction. The exit is 3 hops from the alerted import agency.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-020",
+   "primary_customer_id": "C169",
+   "scenario": "layering_chain_4hop",
+   "typology": "layering",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C110"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T005654",
+    "T021380",
+    "T037125"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Recurring wires fit a documented tie to Vexland: Remote engineer paid by employer's Vexland subsidiary; salary arrives by wire monthly.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-021",
+   "primary_customer_id": "C110",
+   "scenario": "documented_ties_to_jurisdiction",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C005",
+    "C173"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T005131",
+    "T005686",
+    "T005687",
+    "T005952"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "$20,000 moves through 2 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-022",
+   "primary_customer_id": "C005",
+   "scenario": "round_dollar_chain",
+   "typology": "layering",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C117"
+   ],
+   "decisive_txn_ids": [
+    "T002912"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T002912",
+    "T043049",
+    "T046325"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Wires to a notary in Zandria pay estate tax and fees, as the inheritance transfer from the same notary 70 days earlier said they would.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-023",
+   "primary_customer_id": "C117",
+   "scenario": "tie_in_history",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C033",
+    "C083"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T022541",
+    "T022721",
+    "T022722",
+    "T022997"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "$50,000 moves through 2 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-024",
+   "primary_customer_id": "C033",
+   "scenario": "round_dollar_chain",
+   "typology": "layering",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C023"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T017659",
+    "T017919",
+    "T018264",
+    "T018448",
+    "T018717",
+    "T018767",
+    "T018843",
+    "T019693",
+    "T019712",
+    "T019813",
+    "T020048",
+    "T020088",
+    "T020523"
+   ],
+   "expected_rules": [
+    "R3",
+    "R4"
+   ],
+   "explanation": "12 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-025",
+   "primary_customer_id": "C023",
+   "scenario": "many_unrelated_depositors",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C105"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T016683",
+    "T017094"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "Buyer pays for the car, most of it goes to the lender that held the loan.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-026",
+   "primary_customer_id": "C105",
+   "scenario": "explained_pass_through_3",
+   "typology": "rapid_movement",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C150"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T005722",
+    "T021492",
+    "T037049"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Recurring wires fit a documented tie to Zandria: Supports mother in Zandria; monthly remittance documented at onboarding.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-027",
+   "primary_customer_id": "C150",
+   "scenario": "documented_ties_to_jurisdiction",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C004"
+   ],
+   "decisive_txn_ids": [
+    "T004761"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T004761",
+    "T041311",
+    "T044628"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Wires to a notary in Zandria pay estate tax and fees, as the inheritance transfer from the same notary 70 days earlier said they would.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-028",
+   "primary_customer_id": "C004",
+   "scenario": "tie_in_history",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
     "C107"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T006820",
-    "T007333",
-    "T023116",
-    "T023596",
-    "T039301",
-    "T039772"
+    "T006751",
+    "T007236",
+    "T023052",
+    "T023537",
+    "T039125",
+    "T039616"
    ],
    "expected_rules": [
     "R2"
    ],
    "explanation": "Closing funds in and out to the title company, with file numbers in every memo.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-054",
+   "label_id": "LABEL-029",
    "primary_customer_id": "C107",
    "scenario": "explained_pass_through_1",
    "typology": "rapid_movement",
@@ -1458,17 +785,17 @@
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T012332",
-    "T012686",
-    "T012687",
-    "T012934"
+    "T012254",
+    "T012842",
+    "T012843",
+    "T013442"
    ],
    "expected_rules": [
     "R5"
    ],
    "explanation": "Parent funds tuition through the student's account to the university.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-055",
+   "label_id": "LABEL-030",
    "primary_customer_id": "C196",
    "scenario": "explained_round_dollar_chain_1",
    "typology": "layering",
@@ -1476,76 +803,145 @@
   },
   {
    "customer_ids": [
-    "C071"
+    "C016",
+    "C153",
+    "C052",
+    "C028"
    ],
    "decisive_txn_ids": [
-    "T005278",
-    "T006383"
+    "T012820"
    ],
-   "depth": "window",
+   "depth": "hops",
    "evidence_txn_ids": [
-    "T005278",
-    "T006383",
-    "T043066",
-    "T043632"
+    "T012820",
+    "T013048",
+    "T013049",
+    "T013575",
+    "T013576",
+    "T014051",
+    "T014052",
+    "T014547"
    ],
    "expected_rules": [
-    "R2"
+    "R5"
    ],
-   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
+   "explanation": "A grandparent's documented house-deposit gift passes through family accounts to a title company. The gift note is on the grandparent's profile, 3 hops from the alerted student.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-056",
-   "primary_customer_id": "C071",
-   "scenario": "explained_by_history",
-   "typology": "rapid_movement",
+   "label_id": "LABEL-031",
+   "primary_customer_id": "C016",
+   "scenario": "family_chain_4hop",
+   "typology": "layering",
    "verdict": "benign"
   },
   {
    "customer_ids": [
-    "C130"
-   ],
-   "decisive_txn_ids": [
-    "T003076",
-    "T004214"
-   ],
-   "depth": "window",
-   "evidence_txn_ids": [
-    "T003076",
-    "T004214",
-    "T044731",
-    "T045156"
-   ],
-   "expected_rules": [
-    "R2"
-   ],
-   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
-   "injection_txn_ids": [],
-   "label_id": "LABEL-057",
-   "primary_customer_id": "C130",
-   "scenario": "explained_by_history",
-   "typology": "rapid_movement",
-   "verdict": "benign"
-  },
-  {
-   "customer_ids": [
-    "C174"
+    "C181"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T010641",
-    "T010920",
-    "T011455"
+    "T019956",
+    "T020015",
+    "T020260",
+    "T020307",
+    "T020630",
+    "T020654",
+    "T020916",
+    "T020962",
+    "T021139",
+    "T021314",
+    "T021414",
+    "T021985",
+    "T022129"
    ],
    "expected_rules": [
-    "R2",
+    "R3",
     "R4"
    ],
-   "explanation": "$37,103 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
+   "explanation": "12 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-058",
-   "primary_customer_id": "C174",
-   "scenario": "new_account_pass_through",
-   "typology": "rapid_movement",
+   "label_id": "LABEL-032",
+   "primary_customer_id": "C181",
+   "scenario": "many_unrelated_depositors",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C182"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T015801",
+    "T016053",
+    "T016341",
+    "T016468",
+    "T016624",
+    "T016684",
+    "T016871",
+    "T017041",
+    "T017092",
+    "T017344",
+    "T018187",
+    "T018486",
+    "T019089"
+   ],
+   "expected_rules": [
+    "R3",
+    "R4"
+   ],
+   "explanation": "12 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-033",
+   "primary_customer_id": "C182",
+   "scenario": "many_unrelated_depositors",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C096"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T016289",
+    "T016845",
+    "T018141"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Food truck owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-034",
+   "primary_customer_id": "C096",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C015",
+    "C156",
+    "C139"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T038608",
+    "T038996",
+    "T038997",
+    "T039139",
+    "T039140",
+    "T039300"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "$50,000 moves through 3 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-035",
+   "primary_customer_id": "C015",
+   "scenario": "round_dollar_chain",
+   "typology": "layering",
    "verdict": "suspicious"
   },
   {
@@ -1563,53 +959,53 @@
     "C118"
    ],
    "decisive_txn_ids": [
-    "T019740"
+    "T014981"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T019740",
-    "T020208",
-    "T020209",
-    "T020474",
-    "T020475",
-    "T020524",
-    "T020525",
-    "T020718",
-    "T020719",
-    "T020884",
-    "T020885",
-    "T021065",
-    "T021066",
-    "T021135",
-    "T021136",
-    "T021297",
-    "T021298",
-    "T021451",
-    "T021452",
-    "T021575",
-    "T021576",
-    "T021766",
-    "T021767",
-    "T021834",
-    "T021835",
-    "T021929",
-    "T021930",
-    "T022085",
-    "T022086",
-    "T022198",
-    "T022199",
-    "T022300",
-    "T022301",
-    "T022515",
-    "T022516",
-    "T022932"
+    "T014981",
+    "T015440",
+    "T015441",
+    "T015805",
+    "T015806",
+    "T015897",
+    "T015898",
+    "T015949",
+    "T015950",
+    "T016066",
+    "T016067",
+    "T016243",
+    "T016244",
+    "T016439",
+    "T016440",
+    "T016482",
+    "T016483",
+    "T016610",
+    "T016611",
+    "T016717",
+    "T016718",
+    "T016929",
+    "T016930",
+    "T017002",
+    "T017003",
+    "T017265",
+    "T017266",
+    "T017620",
+    "T017621",
+    "T017827",
+    "T017828",
+    "T017952",
+    "T017953",
+    "T018023",
+    "T018024",
+    "T018449"
    ],
    "expected_rules": [
     "R3"
    ],
    "explanation": "Eight 'club dues' payers were each paid the same amount the day before by one cashier, who was paid by a new low-income account that had just received a wire from a high-risk jurisdiction. The source is 3 hops from the alerted treasurer.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-059",
+   "label_id": "LABEL-036",
    "primary_customer_id": "C085",
    "scenario": "funnel_source_hop3",
    "typology": "funnel_account",
@@ -1617,71 +1013,356 @@
   },
   {
    "customer_ids": [
-    "C128"
+    "C172"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T003504",
-    "T003660",
-    "T003807",
-    "T003928",
-    "T003956",
-    "T004184",
-    "T020279",
-    "T020356",
-    "T020375",
-    "T020396",
-    "T020773",
-    "T020774",
-    "T037084",
-    "T037393",
-    "T037658",
-    "T037685",
-    "T037732",
-    "T037798"
+    "T019473",
+    "T020233",
+    "T020868",
+    "T020884",
+    "T021052",
+    "T021117",
+    "T021253",
+    "T021323",
+    "T021432",
+    "T021644",
+    "T021899",
+    "T022804"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "Many payers with matching memos (wedding gift fund) and one payment to the named recipient. Organised a gift fund for a colleague.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-037",
+   "primary_customer_id": "C172",
+   "scenario": "pooled_wedding_gift_fund",
+   "typology": "funnel_account",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C148"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T004196",
+    "T004480",
+    "T004686",
+    "T004727",
+    "T005851",
+    "T005904",
+    "T006121",
+    "T006207",
+    "T006563",
+    "T006978"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "9 unrelated people pay in over 5 days with vague memos and about 92% leaves by wire to a business abroad within two days.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-038",
+   "primary_customer_id": "C148",
+   "scenario": "many_unrelated_depositors",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C077"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T019892",
+    "T021022",
+    "T022163"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Car wash owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-039",
+   "primary_customer_id": "C077",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C167"
+   ],
+   "decisive_txn_ids": [
+    "T003435",
+    "T003752",
+    "T004046",
+    "T012271",
+    "T012401",
+    "T012855"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T003435",
+    "T003752",
+    "T004046",
+    "T012271",
+    "T012401",
+    "T012855",
+    "T044562",
+    "T044823",
+    "T045123"
    ],
    "expected_rules": [
     "R2"
    ],
-   "explanation": "Client payment in, then payroll to the same five people each cycle.",
+   "explanation": "A 'sale of the family house' passes straight abroad. The same one-off sale, from the same payer, happened twice before, 58 and 74 days earlier: outside the 30-day window.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-060",
-   "primary_customer_id": "C128",
-   "scenario": "explained_pass_through_0",
+   "label_id": "LABEL-040",
+   "primary_customer_id": "C167",
+   "scenario": "repeated_one_off",
+   "typology": "rapid_movement",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C112",
+    "C175",
+    "C164",
+    "C063",
+    "C155",
+    "C192",
+    "C021",
+    "C066",
+    "C168",
+    "C136",
+    "C058"
+   ],
+   "decisive_txn_ids": [
+    "T013343"
+   ],
+   "depth": "hops",
+   "evidence_txn_ids": [
+    "T013343",
+    "T013800",
+    "T013801",
+    "T014113",
+    "T014114",
+    "T014265",
+    "T014266",
+    "T014451",
+    "T014452",
+    "T014502",
+    "T014503",
+    "T014645",
+    "T014646",
+    "T014781",
+    "T014782",
+    "T014919",
+    "T014920",
+    "T015097",
+    "T015098",
+    "T015189",
+    "T015190",
+    "T015295",
+    "T015296",
+    "T015533",
+    "T015534",
+    "T015651",
+    "T015652",
+    "T015789",
+    "T015790",
+    "T016036",
+    "T016037",
+    "T016141",
+    "T016142",
+    "T016285",
+    "T016286",
+    "T016758"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "Eight 'club dues' payers were each paid the same amount the day before by one cashier, who was paid by a new low-income account that had just received a wire from a high-risk jurisdiction. The source is 3 hops from the alerted treasurer.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-041",
+   "primary_customer_id": "C112",
+   "scenario": "funnel_source_hop3",
+   "typology": "funnel_account",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C090"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T013884",
+    "T014096",
+    "T014518"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "Client deposit for a named event goes to the venue and caterer named in the memos.",
+   "injection_txn_ids": [
+    "T013884"
+   ],
+   "label_id": "LABEL-042",
+   "primary_customer_id": "C090",
+   "scenario": "explained_pass_through_5",
    "typology": "rapid_movement",
    "verdict": "benign"
   },
   {
    "customer_ids": [
-    "C169",
-    "C026",
-    "C064",
-    "C080"
+    "C178"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T007985",
+    "T012360",
+    "T016661"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-043",
+   "primary_customer_id": "C178",
+   "scenario": "wires_inconsistent_with_profile",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C160",
+    "C194",
+    "C019",
+    "C072"
    ],
    "decisive_txn_ids": [
-    "T038343"
+    "T024129"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T036531",
-    "T037175",
-    "T037176",
-    "T037753",
-    "T037754",
-    "T038106",
-    "T038107",
-    "T038343"
+    "T024129",
+    "T024243",
+    "T024244",
+    "T024454",
+    "T024455",
+    "T024727",
+    "T024728",
+    "T025263"
    ],
    "expected_rules": [
     "R5"
    ],
-   "explanation": "$30,000 passes through 4 accounts in round amounts within days and leaves from a student account opened a month ago to a high-risk jurisdiction. The exit is 3 hops from the alerted import agency.",
+   "explanation": "A grandparent's documented house-deposit gift passes through family accounts to a title company. The gift note is on the grandparent's profile, 3 hops from the alerted student.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-061",
-   "primary_customer_id": "C169",
-   "scenario": "layering_chain_4hop",
+   "label_id": "LABEL-044",
+   "primary_customer_id": "C160",
+   "scenario": "family_chain_4hop",
+   "typology": "layering",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C024"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T020391",
+    "T021597",
+    "T022709",
+    "T039320",
+    "T040415",
+    "T041479"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Laundromat owner: cash deposits fit the documented business, the expected cash volume in KYC and a steady 13-week pattern. Only the peak weeks fall just under $10,000.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-045",
+   "primary_customer_id": "C024",
+   "scenario": "documented_cash_business",
+   "typology": "structuring",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C165",
+    "C041",
+    "C034"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T034033",
+    "T034723",
+    "T034724",
+    "T035081",
+    "T035082",
+    "T035262"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "$25,000 moves through 3 low-income accounts in round amounts, each hop within about a day, then leaves to a high-risk jurisdiction.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-046",
+   "primary_customer_id": "C165",
+   "scenario": "round_dollar_chain",
    "typology": "layering",
    "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C076",
+    "C186"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T016671",
+    "T016993",
+    "T016994",
+    "T017665"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "Same owner moves funds between his own two companies to pay an equipment dealer.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-047",
+   "primary_customer_id": "C076",
+   "scenario": "explained_round_dollar_chain_2",
+   "typology": "layering",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C037",
+    "C180"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T019698",
+    "T020162",
+    "T020163",
+    "T020754"
+   ],
+   "expected_rules": [
+    "R5"
+   ],
+   "explanation": "A restricted gift for a roof repair passes treasurer, committee chair and roofer.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-048",
+   "primary_customer_id": "C037",
+   "scenario": "explained_round_dollar_chain_3",
+   "typology": "layering",
+   "verdict": "benign"
   },
   {
    "customer_ids": [
@@ -1691,25 +1372,25 @@
     "C157"
    ],
    "decisive_txn_ids": [
-    "T032724"
+    "T028815"
    ],
    "depth": "hops",
    "evidence_txn_ids": [
-    "T031346",
-    "T032017",
-    "T032018",
-    "T032201",
-    "T032202",
-    "T032518",
-    "T032519",
-    "T032724"
+    "T026986",
+    "T027221",
+    "T027222",
+    "T027849",
+    "T027850",
+    "T028460",
+    "T028461",
+    "T028815"
    ],
    "expected_rules": [
     "R5"
    ],
    "explanation": "$40,000 passes through 4 accounts in round amounts within days and leaves from a student account opened a month ago to a high-risk jurisdiction. The exit is 3 hops from the alerted import agency.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-062",
+   "label_id": "LABEL-049",
    "primary_customer_id": "C191",
    "scenario": "layering_chain_4hop",
    "typology": "layering",
@@ -1717,26 +1398,165 @@
   },
   {
    "customer_ids": [
-    "C187"
+    "C097"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T022740",
-    "T023324",
-    "T024811",
-    "T024892",
-    "T026009"
+    "T006731",
+    "T011201",
+    "T015561"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-050",
+   "primary_customer_id": "C097",
+   "scenario": "wires_inconsistent_with_profile",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C038"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T024106",
+    "T025386",
+    "T025957",
+    "T026514",
+    "T026519"
    ],
    "expected_rules": [
     "R1"
    ],
-   "explanation": "Freelance illustrator with about $1905/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "explanation": "Barista with about $2183/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
    "injection_txn_ids": [],
-   "label_id": "LABEL-063",
-   "primary_customer_id": "C187",
+   "label_id": "LABEL-051",
+   "primary_customer_id": "C038",
    "scenario": "low_income_cash_under_threshold",
    "typology": "structuring",
    "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C040"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T016262",
+    "T016355",
+    "T016415",
+    "T016526",
+    "T016987",
+    "T017037",
+    "T017662",
+    "T017683",
+    "T017871",
+    "T018496",
+    "T018923"
+   ],
+   "expected_rules": [
+    "R3"
+   ],
+   "explanation": "Many payers with matching memos (reunion) and one payment to the named recipient. Organising a school reunion.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-052",
+   "primary_customer_id": "C040",
+   "scenario": "pooled_reunion",
+   "typology": "funnel_account",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C054"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T005714",
+    "T021631",
+    "T036899"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Recurring wires fit a documented tie to Korvania: Textile importer; supplier in Korvania. Enhanced due diligence completed.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-053",
+   "primary_customer_id": "C054",
+   "scenario": "documented_ties_to_jurisdiction",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C146"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T034276",
+    "T034825",
+    "T036604"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Student with about $2948/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-054",
+   "primary_customer_id": "C146",
+   "scenario": "low_income_cash_under_threshold",
+   "typology": "structuring",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C188"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T005744",
+    "T021371",
+    "T037121"
+   ],
+   "expected_rules": [
+    "R4"
+   ],
+   "explanation": "Recurring wires fit a documented tie to Belmoria: International student; family sponsor in Belmoria, documented at onboarding.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-055",
+   "primary_customer_id": "C188",
+   "scenario": "documented_ties_to_jurisdiction",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C071"
+   ],
+   "decisive_txn_ids": [
+    "T002522",
+    "T003516"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T002522",
+    "T003516",
+    "T045082",
+    "T045278"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-056",
+   "primary_customer_id": "C071",
+   "scenario": "explained_by_history",
+   "typology": "rapid_movement",
+   "verdict": "benign"
   },
   {
    "customer_ids": [
@@ -1744,26 +1564,27 @@
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T031245",
-    "T031466",
-    "T031822",
-    "T031854",
-    "T032032",
-    "T032356",
-    "T033042",
-    "T033184",
-    "T033344",
-    "T033405",
-    "T034087"
+    "T024032",
+    "T024246",
+    "T024543",
+    "T024595",
+    "T024637",
+    "T024809",
+    "T025943",
+    "T026041",
+    "T026169",
+    "T026206",
+    "T026265",
+    "T026989"
    ],
    "expected_rules": [
     "R3"
    ],
    "explanation": "Many payers with matching memos (marathon charity team) and one payment to the named recipient. Team captain for a charity run.",
    "injection_txn_ids": [
-    "T032356"
+    "T026206"
    ],
-   "label_id": "LABEL-064",
+   "label_id": "LABEL-057",
    "primary_customer_id": "C092",
    "scenario": "pooled_marathon_charity_team",
    "typology": "funnel_account",
@@ -1771,46 +1592,223 @@
   },
   {
    "customer_ids": [
-    "C070"
+    "C187"
    ],
    "depth": "shallow",
    "evidence_txn_ids": [
-    "T010102",
-    "T010207",
-    "T010225",
-    "T010623"
+    "T022668",
+    "T023269",
+    "T024757",
+    "T024834",
+    "T025982"
    ],
    "expected_rules": [
-    "R2",
+    "R1"
+   ],
+   "explanation": "Freelance illustrator with about $1905/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-058",
+   "primary_customer_id": "C187",
+   "scenario": "low_income_cash_under_threshold",
+   "typology": "structuring",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C129"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T032545",
+    "T033538",
+    "T033584",
+    "T034768",
+    "T035830"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Rideshare driver with about $3197/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-059",
+   "primary_customer_id": "C129",
+   "scenario": "low_income_cash_under_threshold",
+   "typology": "structuring",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C086"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T011187",
+    "T011633"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "A maturing CD goes straight to the university bursar with the student id in the memo.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-060",
+   "primary_customer_id": "C086",
+   "scenario": "explained_pass_through_2",
+   "typology": "rapid_movement",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C183"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T008637",
+    "T012937",
+    "T017210"
+   ],
+   "expected_rules": [
     "R4"
    ],
-   "explanation": "$20,724 arrives by wire and about 95% leaves within 40 hours, partly to a high-risk jurisdiction. Income and account age do not fit.",
-   "injection_txn_ids": [
-    "T010102"
+   "explanation": "Three large wires to high-risk jurisdictions. Declared income is a fraction of that and the KYC profile lists only US activity and no family or business ties.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-061",
+   "primary_customer_id": "C183",
+   "scenario": "wires_inconsistent_with_profile",
+   "typology": "high_risk_jurisdiction",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C089"
    ],
-   "label_id": "LABEL-065",
-   "primary_customer_id": "C070",
-   "scenario": "new_account_pass_through",
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T004572",
+    "T004693",
+    "T005178",
+    "T005297",
+    "T021406",
+    "T022006",
+    "T022151",
+    "T022171"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "Progress payment in, then invoices to three subcontractors.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-062",
+   "primary_customer_id": "C089",
+   "scenario": "explained_pass_through_4",
+   "typology": "rapid_movement",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C099"
+   ],
+   "decisive_txn_ids": [
+    "T003448",
+    "T003742",
+    "T004026",
+    "T012274",
+    "T012562",
+    "T012876"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T003448",
+    "T003742",
+    "T004026",
+    "T012274",
+    "T012562",
+    "T012876",
+    "T044571",
+    "T044787",
+    "T045026"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "A 'sale of the family house' passes straight abroad. The same one-off sale, from the same payer, happened twice before, 58 and 74 days earlier: outside the 30-day window.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-063",
+   "primary_customer_id": "C099",
+   "scenario": "repeated_one_off",
    "typology": "rapid_movement",
    "verdict": "suspicious"
   },
   {
    "customer_ids": [
-    "C105"
+    "C130"
    ],
-   "depth": "shallow",
+   "decisive_txn_ids": [
+    "T004122",
+    "T005336"
+   ],
+   "depth": "window",
    "evidence_txn_ids": [
-    "T016794",
-    "T017175"
+    "T004122",
+    "T005336",
+    "T044038",
+    "T044331"
    ],
    "expected_rules": [
     "R2"
    ],
-   "explanation": "Buyer pays for the car, most of it goes to the lender that held the loan.",
+   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-064",
+   "primary_customer_id": "C130",
+   "scenario": "explained_by_history",
+   "typology": "rapid_movement",
+   "verdict": "benign"
+  },
+  {
+   "customer_ids": [
+    "C171"
+   ],
+   "depth": "shallow",
+   "evidence_txn_ids": [
+    "T017480",
+    "T018498",
+    "T018531",
+    "T019228"
+   ],
+   "expected_rules": [
+    "R1"
+   ],
+   "explanation": "Part-time tutor with about $2701/month income makes repeated cash deposits just under $10,000 within days. Nothing in the KYC profile explains the cash.",
+   "injection_txn_ids": [],
+   "label_id": "LABEL-065",
+   "primary_customer_id": "C171",
+   "scenario": "low_income_cash_under_threshold",
+   "typology": "structuring",
+   "verdict": "suspicious"
+  },
+  {
+   "customer_ids": [
+    "C012"
+   ],
+   "decisive_txn_ids": [
+    "T005241",
+    "T006293"
+   ],
+   "depth": "window",
+   "evidence_txn_ids": [
+    "T005241",
+    "T006293",
+    "T046752",
+    "T047356"
+   ],
+   "expected_rules": [
+    "R2"
+   ],
+   "explanation": "An estate distribution goes to a builder. Both references are explained by the solicitor's interim payment and the builder's contract deposit 60+ days earlier.",
    "injection_txn_ids": [],
    "label_id": "LABEL-066",
-   "primary_customer_id": "C105",
-   "scenario": "explained_pass_through_3",
+   "primary_customer_id": "C012",
+   "scenario": "explained_by_history",
    "typology": "rapid_movement",
    "verdict": "benign"
   }
