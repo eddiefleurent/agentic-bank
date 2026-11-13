@@ -3,6 +3,7 @@ index of the same sections, real Titan v2 embeddings, the real model and groundi
 
     uv run python scripts/rag_eval.py                  # retrieval + answers (about $0.05)
     uv run python scripts/rag_eval.py --retrieval-only # embeddings only (well under $0.01)
+    uv run python scripts/rag_eval.py --kb <id>        # same, against the deployed Knowledge Base
 
 Needs AWS credentials that may call Bedrock in us-east-1. Answers need the deployed guardrail
 `agentic-bank-grounding` (found by name; or set GUARDRAIL_ID and GUARDRAIL_VERSION).
@@ -22,7 +23,11 @@ import boto3
 
 from agentic_bank.knowledge import policy
 from agentic_bank.knowledge.corpus import CORPUS_DIR, load_corpus
-from agentic_bank.knowledge.retrievers import InMemoryRetriever, titan_embedder
+from agentic_bank.knowledge.retrievers import (
+    InMemoryRetriever,
+    KnowledgeBaseRetriever,
+    titan_embedder,
+)
 
 REGION = "us-east-1"
 MODEL_ID = "openai.gpt-oss-120b-1:0"  # the policy answerer stays on gpt-oss (see docs/rag.md)
@@ -53,12 +58,19 @@ def pct(n: int, d: int) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--retrieval-only", action="store_true")
+    parser.add_argument(
+        "--kb", metavar="ID", help="query the deployed Knowledge Base, not in memory"
+    )
     args = parser.parse_args()
 
     questions = json.loads((CORPUS_DIR / "eval" / "questions.json").read_text())
     bedrock = boto3.client("bedrock-runtime", region_name=REGION)
     sections = load_corpus()
-    retriever = InMemoryRetriever(sections, titan_embedder(bedrock))
+    if args.kb:
+        client = boto3.client("bedrock-agent-runtime", region_name=REGION)
+        retriever = KnowledgeBaseRetriever(client, args.kb)
+    else:
+        retriever = InMemoryRetriever(sections, titan_embedder(bedrock))
     print(f"indexed {len(sections)} sections from {len({s.doc_id for s in sections})} documents")
 
     answerable = [q for q in questions if "refuse" not in q]
