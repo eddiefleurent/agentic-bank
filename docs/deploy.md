@@ -18,15 +18,21 @@ GitHub repository with Actions enabled. The account must be able to invoke the B
 stack per account, not a multi-environment template. Estimate the [cost](#cost) first.
 
 1. **Bootstrap, once, from your machine (local state).** It creates the state bucket, the two CI
-   roles, the permissions boundary and the PII key. Copy `infra/bootstrap/terraform.tfvars.example`
-   to `terraform.tfvars` and set `github_oidc_subject_prefix` to your repository's OIDC subject
-   prefix (the example shows how to read it). It decides which repository may assume the CI roles.
+   roles, the permissions boundary, the PII key, the AML logs key and a $25 monthly cost budget.
+   Copy `infra/bootstrap/terraform.tfvars.example` to `terraform.tfvars` and set
+   `github_oidc_subject_prefix` to your repository's OIDC subject prefix (the example shows how to
+   read it). It decides which repository may assume the CI roles. Also set `budget_alert_email`
+   in that gitignored file (no default; do not commit an address). AWS sends a confirmation to
+   that address; alerts start after it is accepted.
    Set `create_oidc_provider = false` if the account already has the GitHub OIDC provider.
    ```
    terraform -chdir=infra/bootstrap init
    terraform -chdir=infra/bootstrap apply
    ```
    Keep the local state file safe and out of Git (it is ignored). CI never applies this root.
+   Re-apply this root once if the account was bootstrapped before the AML logs key existed. The
+   app stack reads `alias/agentic-bank-aml-logs`, and the apply role needs the new log-group,
+   alarm and KMS-grant statements.
 2. **Tell the workflow your account.** In the repository settings add the Actions secret
    `AWS_ACCOUNT_ID` (12 digits). An account ID is not a credential, but as a secret GitHub masks it
    in the run logs, which are public in a public repository. A variable of the same name also works.
@@ -84,18 +90,28 @@ terraform -chdir=infra/bootstrap destroy
 ```
 
 Destroy the app first, with admin credentials. The state bucket has `prevent_destroy`: to delete it,
-remove that line and empty the bucket including old versions. The PII key is scheduled for deletion
-and stays (unusable, not billed) for 30 days. Stop any running dispute executions first, or wait for
-them to time out. Delete `~/.config/agentic-bank/` on your machine.
+remove that line and empty the bucket including old versions. The PII key and the AML logs key are
+scheduled for deletion and stay (unusable, not billed) for 30 days. Stop any running dispute or AML
+executions first, or wait for them to time out. Delete `~/.config/agentic-bank/` on your machine.
 
 ## Cost
 
 us-east-1, demo traffic; rates checked 2026-11-11. This is an estimate: check current prices.
 
-Idle, the stack costs about $1/month: the PII KMS key ($1.00/month). Everything else bills per request:
-AgentCore gateway and policy calls, Lambda, DynamoDB on demand (tables and the GSI), Step Functions
-($0.025 per 1,000 transitions; waiting for a human is free), Cognito Essentials (free under 10,000
-monthly users), SSM standard parameters (free), CloudWatch Logs (30-day retention, cents), the state
-bucket (cents). One dispute costs about $0.005: Comprehend PII ~$0.0003, Nemotron review
-(~$0.15/$0.60 per million tokens, 1-2 calls) ~$0.003, grounding check ~$0.001, ~15 transitions $0.0004,
-KMS $0.03 per 10,000 calls. A day of proof runs (about 20 disputes) stays under $0.20.
+Idle, the stack costs about $2/month: two customer-managed KMS keys at $1.00 each (the PII vault
+key, and `alias/agentic-bank-aml-logs` for the AML triage execution log group). Everything else
+bills per request: AgentCore gateway and policy calls, Lambda, DynamoDB on demand (tables and the
+GSI), Step Functions ($0.025 per 1,000 transitions; waiting for a human is free), Cognito
+Essentials (free under 10,000 monthly users), SSM standard parameters (free), CloudWatch Logs
+(Lambda groups 30 days, the AML execution group 90 days, cents), three AML CloudWatch alarms
+(inside the ten free alarms), the state bucket (cents). One dispute costs about $0.005: Comprehend
+PII ~$0.0003, Nemotron review (~$0.15/$0.60 per million tokens, 1-2 calls) ~$0.003, grounding
+check ~$0.001, ~15 transitions $0.0004, KMS $0.03 per 10,000 calls. A day of proof runs (about 20
+disputes) stays under $0.20. AML alert cost is in [aml.md](aml.md).
+
+A monthly COST budget (`agentic-bank-monthly`, `infra/bootstrap/budget.tf`) alerts at $25: 80% of
+actual spend and 100% of forecasted spend. The budget itself is free (email notifications are not
+budget actions). It lives in bootstrap, which a human applies. The CI apply role has no
+`budgets:ViewBudget` or `budgets:ModifyBudget` (both are unscoped; Budgets has no resource ARN).
+Putting the budget in `infra/app` would need those two actions on `*` in the apply role. The
+subscriber address is `budget_alert_email` in the gitignored `infra/bootstrap/terraform.tfvars`.

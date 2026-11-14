@@ -87,13 +87,12 @@ Checked with the awslabs Well-Architected Security MCP server (read-only, Securi
 
 - No VPC, private endpoints or egress control; Lambdas call AWS over the public endpoints with TLS.
   A bank uses private subnets, interface endpoints and endpoint policies.
-- CloudWatch log groups and Lambda environment variables use AWS-managed keys, not a customer-managed key; a bank uses customer-managed KMS keys.
+- CloudWatch log groups for Lambdas and the HTTP API, and Lambda environment variables, use AWS-managed keys. The AML triage execution log group uses the customer-managed key `alias/agentic-bank-aml-logs` (infra/bootstrap). A bank uses customer-managed keys for the rest.
 - The vault table uses the AWS-owned table key by choice: its PII values are already envelope-encrypted with the PII KMS key and the `{case_id, token}` encryption context.
-- No WAF, custom login domain, CloudWatch alarms (denied calls, stuck workflows) or X-Ray tracing. No reserved concurrency on the Lambdas.
+- No WAF, custom login domain or X-Ray tracing. CloudWatch alarms cover AML triage (`ExecutionsFailed`, `ExecutionsTimedOut`, reviewer Lambda `Errors`); other workflows have none. No reserved concurrency on the Lambdas.
 - GuardDuty, Security Hub, IAM Access Analyzer and Macie are not enabled.
 - DynamoDB deletion protection is off so that teardown works; a bank turns it on.
-- Audit is one structured log line per tool call (subject, client_id, tool; 30-day retention), not a
-  queryable, fail-closed store.
+- Audit of tool calls is one structured log line (subject, client_id, tool; 30-day retention). An AML model call adds a line (alert id, model id, SHA-256 of the prompt, recommendation, check pass/fail; the evidence pack is not logged; 30-day Lambda retention). Neither is a queryable, fail-closed store. A five-year BSA archive (S3 Object Lock) is documented in [aml.md](aml.md) and not built.
 - Revocation is per customer and agent client: it cuts all of that customer's agents on the `agent` client.
 - Transfers: no push notification, device binding or CIBA; password sign-in, not SRP; no idempotency key
   on proposals; no daily or velocity limit; no ACH file, settlement or returns; adding payees not built.

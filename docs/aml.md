@@ -600,17 +600,40 @@ fails if it drifts from the pydantic model.
   proof or break-glass role, not the account root.
 - **Writes one row at a time.** The boundary allows PutItem, not BatchWriteItem: about 300 calls,
   2-4 s.
-- **Logs.** Each review logs one line (tokens, stop reason, failure); the state machine has no
-  execution logging, and history keeps the model's answer under the AWS-owned key. A bank would log
-  every model call with its input hash, encrypt history with its own KMS key, and keep records for
-  5 years (BSA).
+- **Logs.** Each review still logs one operational line (tokens, stop reason, failure). It also
+  logs one audit line per model call, `event` `aml.review.audit`: alert id, case id (`CASE#A-…`),
+  model id, SHA-256 of the exact system prompt and user message, recommendation, and whether
+  `check` passed or failed. The evidence pack is not in that line. The pack is the case snapshot
+  (KYC, memos, transactions). Writing it to CloudWatch would make a second copy of that data. The
+  hash lets someone prove which input was sent, later, if they still have the case. The tool schema
+  is not part of the hash: it is frozen and holds no case data. The line goes to the reviewer
+  Lambda's log group, which keeps 30 days under the AWS-managed key, same as the other functions.
+  Step Functions execution logs go to `/aws/vendedlogs/states/agentic-bank-aml-triage`
+  (`infra/app/aml_audit.tf`), level ALL, `include_execution_data = false` (state names and errors,
+  no payload), encrypted with the customer-managed key `alias/agentic-bank-aml-logs`, kept 90 days.
+  That matches this account's CloudTrail retention: long enough to investigate a failed run. It is
+  not a five-year store. Execution history still uses the AWS-owned key and still holds each state's
+  input and output. Alarms, console only: `ExecutionsFailed`, `ExecutionsTimedOut`, and the
+  reviewer Lambda's `Errors`.
+- **BSA records, not built here.** A US bank keeps the records behind an AML decision for five
+  years (Bank Secrecy Act recordkeeping, 31 CFR 1010.430), including what supported a SAR. This
+  demo does not file SARs and does not build that archive. CloudWatch is the hot detective store.
+  A bank would export the case partition and the audit lines (hash, model id, recommendation,
+  check result) to S3 in a separate log-archive account, with Object Lock in compliance mode and a
+  five-year retention, so the account that runs the model cannot delete them.
 - **One model, on demand, us-east-1, no guardrail.** `check` is the output control here; the
   dispute grounding guardrail scores free text against a source, which this answer is not.
 
 ### Cost
 
-On demand, nothing idle. Per alert: about 15,000 input and 1,500 output gpt-oss tokens (about
-$0.003), about 300 small DynamoDB writes and a few reads (about $0.0004), four state transitions
-and about 15 s of Lambda: well under one cent. A month of proof runs (say 20 alerts) is about
-$0.10. The Lambda zip adds about 3 MB of code storage (free).
+On demand, nothing idle in the workflow itself. Per alert: about 15,000 input and 1,500 output
+gpt-oss tokens (about $0.003), about 300 small DynamoDB writes and a few reads (about $0.0004),
+four state transitions and about 15 s of Lambda: well under one cent. A month of proof runs (say
+20 alerts) is about $0.10. The Lambda zip adds about 3 MB of code storage (free). Execution-log
+ingestion at that volume is cents, and the three alarms sit inside the ten free CloudWatch alarms.
+The logs key is a second customer-managed key at $1.00/month. The PII key cannot be reused: its
+policy refuses any encrypt whose context is not `{case_id, token}`, and CloudWatch Logs uses
+`aws:logs:arn`. Account idle cost is about $2/month. A $25 monthly account budget alerts at 80%
+actual and 100% forecasted ([deploy.md](deploy.md#cost)); the address is `budget_alert_email` in
+the gitignored bootstrap tfvars.
 

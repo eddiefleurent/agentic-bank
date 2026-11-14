@@ -80,8 +80,9 @@ resource "aws_iam_role_policy" "aml_workflow" {
   })
 }
 
-# History keeps the AWS-owned key. It holds the model's answer (txn ids, KYC field names, a
-# narrative) but no snapshot: the reviewer reads the case from DynamoDB, not from the input.
+# Execution history keeps the AWS-owned key and each state's input and output (the model's answer:
+# txn ids, KYC field names, a narrative; not the snapshot). CloudWatch execution logs are separate
+# and carry no payload (aml_audit.tf).
 resource "aws_sfn_state_machine" "aml" {
   name     = "agentic-bank-aml-triage"
   type     = "STANDARD"
@@ -90,7 +91,12 @@ resource "aws_sfn_state_machine" "aml" {
     worker_arn = aws_lambda_function.fn["aml"].arn
     review_arn = aws_lambda_function.fn["aml-review"].arn
   })
-  depends_on = [aws_iam_role_policy.aml_workflow]
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.aml_triage.arn}:*"
+    include_execution_data = false
+    level                  = "ALL"
+  }
+  depends_on = [aws_iam_role_policy.aml_workflow, aws_iam_role_policy.aml_workflow_logs]
 }
 
 # --- case-reader: dropping the session policy still cannot read a customer partition ---

@@ -289,6 +289,8 @@ data "aws_iam_policy_document" "apply" {
     resources = [
       "${format(local.arn_prefix, "logs")}:log-group:/aws/lambda/agentic-bank-*",
       "${format(local.arn_prefix, "logs")}:log-group:/aws/apigateway/agentic-bank-*",
+      "${format(local.arn_prefix, "logs")}:log-group:/aws/vendedlogs/states/agentic-bank-*",
+      "${format(local.arn_prefix, "logs")}:log-group:/aws/vendedlogs/states/agentic-bank-*:*",
     ]
   }
   # HTTP API access logs are a "vended" log delivery: these calls take no resource ARN.
@@ -340,11 +342,36 @@ data "aws_iam_policy_document" "apply" {
     actions   = ["kms:DescribeKey"]
     resources = [aws_kms_key.pii.arn]
   }
+  # The AML execution-log key, same rule: describe and (only) the grant CloudWatch needs to use it.
+  statement {
+    sid       = "ReadAmlLogsKey"
+    actions   = ["kms:DescribeKey", "kms:ListGrants"]
+    resources = [aws_kms_key.aml_logs.arn]
+  }
+  statement {
+    sid       = "GrantAmlLogsKeyToCloudWatch"
+    actions   = ["kms:CreateGrant", "kms:RevokeGrant"]
+    resources = [aws_kms_key.aml_logs.arn]
+    condition {
+      test     = "Bool"
+      variable = "kms:GrantIsForAWSResource"
+      values   = ["true"]
+    }
+  }
   # These calls take no resource ARN (the pool or domain does not exist yet, or is looked up by name).
   statement {
     sid       = "UnscopedReads"
     actions   = ["cognito-idp:CreateUserPool", "cognito-idp:DescribeUserPoolDomain", "logs:DescribeLogGroups", "bedrock:CreateGuardrail", "bedrock:ListGuardrails", "kms:ListAliases", "states:ValidateStateMachineDefinition"]
     resources = ["*"]
+  }
+  # AML triage alarms (infra/app/aml_audit.tf). Names are fixed, so the ARN pattern holds.
+  statement {
+    sid = "AmlAlarms"
+    actions = [
+      "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:DescribeAlarms",
+      "cloudwatch:ListTagsForResource", "cloudwatch:TagResource", "cloudwatch:UntagResource",
+    ]
+    resources = ["arn:aws:cloudwatch:${var.region}:${data.aws_caller_identity.current.account_id}:alarm:agentic-bank-aml-*"]
   }
   # Gateway and policy engine IDs are random, so no name pattern fits; the region deny still applies.
   statement {
@@ -496,6 +523,18 @@ data "aws_iam_policy_document" "boundary" {
     actions   = ["states:SendTaskSuccess"]
     resources = ["*"]
   }
+  # Step Functions log delivery rejects a resource ARN, so the ceiling is *. Only the AML workflow
+  # role's own policy grants these actions; the ceiling alone does not.
+  statement {
+    sid = "AmlLogDelivery"
+    actions = [
+      "logs:CreateLogDelivery", "logs:CreateLogStream", "logs:GetLogDelivery",
+      "logs:UpdateLogDelivery", "logs:DeleteLogDelivery", "logs:ListLogDeliveries",
+      "logs:PutLogEvents", "logs:PutResourcePolicy", "logs:DescribeResourcePolicies",
+      "logs:DescribeLogGroups",
+    ]
+    resources = ["*"]
+  }
   # Policy assistant. Retrieve (tools role) is served by Bedrock; the rest is what the Knowledge Base
   # role needs to ingest and to serve Retrieve. Embedding InvokeModel is covered by "Review" above.
   statement {
@@ -601,6 +640,47 @@ resource "aws_kms_key" "pii" {
 resource "aws_kms_alias" "pii" {
   name          = "alias/agentic-bank-pii"
   target_key_id = aws_kms_key.pii.key_id
+}
+
+# AML execution logs. A second key ($1/month): the PII key denies any encrypt whose context is not
+# {case_id, token}, and CloudWatch Logs sends aws:logs:arn. The pipeline may describe this key and
+# grant it to CloudWatch; it cannot put a key policy (no kms:PutKeyPolicy on the apply role).
+data "aws_iam_policy_document" "aml_logs_key" {
+  statement {
+    sid       = "AccountAdministersKeyAndIamGrantsUse"
+    actions   = ["kms:*"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+  statement {
+    sid       = "CloudWatchLogsEncryptsAmlExecutionLogs"
+    actions   = ["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"]
+    resources = ["*"]
+    principals {
+      type        = "Service"
+      identifiers = ["logs.${var.region}.amazonaws.com"]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "kms:EncryptionContext:aws:logs:arn"
+      values   = ["arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/vendedlogs/states/agentic-bank-*"]
+    }
+  }
+}
+
+resource "aws_kms_key" "aml_logs" {
+  description             = "agentic-bank AML triage execution logs"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.aml_logs_key.json
+}
+
+resource "aws_kms_alias" "aml_logs" {
+  name          = "alias/agentic-bank-aml-logs"
+  target_key_id = aws_kms_key.aml_logs.key_id
 }
 
 resource "aws_iam_policy" "boundary" {

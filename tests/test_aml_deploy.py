@@ -3,6 +3,7 @@
 What only AWS can prove (IAM denies another case, the workflow runs) is in proofs/aml_triage.py.
 """
 
+import hashlib
 import json
 import re
 from functools import cache
@@ -238,3 +239,112 @@ def test_record_queues_for_a_person_and_never_closes(env):
 
     handler.record("A-0004", {"recommendation": "closed"}, "e", ddb)  # garbage from upstream
     assert ddb.rows[("CASE#A-0004", "RECOMMENDATION")]["recommendation"] == {"S": "escalate"}
+
+
+class _Bedrock:
+    def __init__(self, reply: dict[str, Any] | None = None, error: BaseException | None = None):
+        self.reply, self.error, self.kwargs = reply, error, {}
+
+    def converse(self, **kwargs: Any) -> dict[str, Any]:
+        self.kwargs = kwargs
+        if self.error:
+            raise self.error
+        assert self.reply is not None
+        return self.reply
+
+
+def _review(monkeypatch, alert_id: str, snap: dict[str, Any], bedrock: _Bedrock) -> None:
+    monkeypatch.setenv("MODEL_ID", "openai.gpt-oss-120b-1:0")
+
+    class _Source:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            self.snapshot = snap
+
+    monkeypatch.setattr(handler, "DynamoCaseSource", _Source)
+    monkeypatch.setattr(handler, "case_reader", lambda _alert: object())
+    monkeypatch.setattr(handler.boto3, "client", lambda *_a, **_k: bedrock)
+    handler.review_handler({"alert_id": alert_id})
+
+
+def _audit_line(err: str, needle: str) -> dict[str, Any]:
+    assert needle not in err  # the evidence pack and its PII never reach the log
+    found = [json.loads(line) for line in err.splitlines() if '"aml.review.audit"' in line]
+    assert len(found) == 1
+    return found[0]
+
+
+def _expect_hash(line: dict[str, Any], bedrock: _Bedrock, needle: str) -> None:
+    sent_user = bedrock.kwargs["messages"][0]["content"][0]["text"]
+    sent_system = bedrock.kwargs["system"][0]["text"]
+    assert needle in sent_user  # the hash is of the prompt that actually carried the evidence
+    preimage = json.dumps(
+        {"system": sent_system, "user": sent_user}, separators=(",", ":"), sort_keys=True
+    )
+    assert line["input_sha256"] == hashlib.sha256(preimage.encode()).hexdigest()
+    assert set(line) == {
+        "event",
+        "alert_id",
+        "case_id",
+        "model_id",
+        "input_sha256",
+        "recommendation",
+        "check",
+    }
+
+
+def test_reviewer_audit_line_hashes_the_prompt_and_omits_evidence(capsys, monkeypatch, env):
+    """One structured line per model call: ids, model, SHA-256 of the exact input, the
+    checked recommendation. The evidence pack itself is not logged."""
+    alert_id, snap = case("LABEL-001")
+    snap = json.loads(json.dumps(snap))
+    needle = "UNIQUE-EVIDENCE-NEEDLE-9f3a"
+    snap["kyc"]["notes"] = needle
+    snap["flagged_transactions"][0]["memo"] = needle
+    own = snap["flagged_transactions"][0]["txn_id"]
+    bedrock = _Bedrock(
+        {
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "toolUse": {
+                                "name": triage.TOOL_NAME,
+                                "input": {
+                                    "recommendation": "close",
+                                    "typology": "none",
+                                    "risk_factors": [],
+                                    "mitigating_factors": [
+                                        {"statement": "Fits the profile.", "txn_ids": [own]}
+                                    ],
+                                    "narrative": "Looks fine.",
+                                },
+                            }
+                        }
+                    ]
+                }
+            },
+            "usage": {"inputTokens": 10, "outputTokens": 5},
+            "stopReason": "tool_use",
+        }
+    )
+    _review(monkeypatch, alert_id, snap, bedrock)
+    line = _audit_line(capsys.readouterr().err, needle)
+    assert line["event"] == "aml.review.audit"
+    assert line["alert_id"] == alert_id and line["case_id"] == f"CASE#{alert_id}"
+    assert line["model_id"] == "openai.gpt-oss-120b-1:0"
+    assert line["recommendation"] == "close" and line["check"] == "pass"
+    _expect_hash(line, bedrock, needle)
+
+
+def test_reviewer_audit_line_records_a_failed_check_without_evidence(capsys, monkeypatch, env):
+    alert_id, snap = case("LABEL-001")
+    snap = json.loads(json.dumps(snap))
+    needle = "UNIQUE-EVIDENCE-NEEDLE-9f3a"
+    snap["kyc"]["notes"] = needle
+    bedrock = _Bedrock(error=TimeoutError("timed out talking to the model"))
+    _review(monkeypatch, alert_id, snap, bedrock)
+    err = capsys.readouterr().err
+    line = _audit_line(err, needle)
+    assert line["recommendation"] == "escalate" and line["check"] == "fail"
+    assert "timed out talking" not in err  # exception text can carry case data; the type is enough
+    _expect_hash(line, bedrock, needle)

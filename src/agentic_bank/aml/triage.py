@@ -15,6 +15,7 @@ its reason. Anything that fails, raises, times out or hits a bound becomes `esca
 failure reason: in AML a missed suspicious case is the costly error, so failure goes to a person.
 """
 
+import hashlib
 import json
 import sys
 import time
@@ -236,6 +237,22 @@ def case_text(snapshot: dict[str, Any]) -> str:
     return json.dumps(snap, separators=(",", ":"))
 
 
+def user_evidence(snapshot: dict[str, Any]) -> str:
+    """The user message Converse receives: the short ask plus the evidence pack."""
+    return ask(snapshot) + "\nCase snapshot:\n" + case_text(snapshot)
+
+
+def prompt_evidence_sha256(snapshot: dict[str, Any]) -> str:
+    """SHA-256 of the exact system prompt and user message. The tool schema carries no case data,
+    so it is not part of the preimage. Hex only: callers log this, never the text."""
+    raw = json.dumps(
+        {"system": BASELINE_PROMPT, "user": user_evidence(snapshot)},
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
 def ask(snapshot: dict[str, Any]) -> str:
     a = snapshot["alert"]
     return (
@@ -277,20 +294,15 @@ def call_baseline(
     started = time.monotonic()
     run = TriageRun(outcome=failed("baseline did not run"))
     answer: Any = None
-    text = case_text(snapshot)
-    if len(text) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never silently cut
+    user = user_evidence(snapshot)
+    if len(case_text(snapshot)) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never cut
         run.outcome = failed("evidence pack over budget")
         return run, None
     try:
         response = bedrock.converse(
             modelId=model_id,
             system=[{"text": BASELINE_PROMPT}],
-            messages=[
-                {
-                    "role": "user",
-                    "content": [{"text": ask(snapshot) + "\nCase snapshot:\n" + text}],
-                }
-            ],
+            messages=[{"role": "user", "content": [{"text": user}]}],
             inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS, "temperature": 0},
             toolConfig={
                 "tools": [{"toolSpec": tool_spec()}],
