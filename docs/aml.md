@@ -392,10 +392,37 @@ worth it depends on how often real alerts look like the deep cases, which this d
   long and that earlier history matters. The single call does not get that hint.
 - The data was regenerated after review (profile tells removed), so these numbers are not
   comparable with the first slice 2b run (commit `4d654b5`).
-- The empty-field rule applies to risk factors too; a narrower rule (only for mitigating factors)
-  would cut failures but is not what was measured.
+- The 2b runs above applied the empty-field rule to every factor. `check` now allows an empty
+  KYC field on a risk factor only when the recommendation is escalate; close still fails on any
+  empty cite. Those runs are not a measurement of that relaxation. An offline re-score of the
+  stored answers could not fill that gap: see below.
 - Model spend for this re-run: about $4.31 for the 9 runs (heuristic free), plus about $0.05 of
   smoke runs. The first slice 2b run cost about $4.45.
+
+### Empty KYC field: escalate risk factors only
+
+`check` still rejects a KYC field or section the reviewer did not read, on any factor and any
+recommendation. An empty KYC field (read, but missing) fails when a mitigating factor cites it.
+It also fails on a risk-factor cite when the recommendation is `close`, the same as on main.
+Escalate may cite an empty field on a risk factor only (occupation missing, empty notes).
+
+Close stays strict. A failure on an escalate answer still escalates, so allowing an empty field
+there only removes a false `failure`; the queue outcome does not change. A close that newly
+passed would be a real outcome change, and it cannot be measured yet.
+
+Offline re-score of `evals/aml/results/**/*.cases.jsonl` (37 files, 2,021 rows). No new model
+calls. `check` returns `failed(...)` before `advice = answer.model_dump()`, so a rejected answer
+is not saved.
+
+| Stored result | Rows | Under this rule |
+| --- | --- | --- |
+| Row `failure` is `cited fields not read or empty` | 99 (37 suspicious, 62 benign). 96 name `notes` only; 3 also or only name `activity_summary`. All 99 escalated, and all have `advice: null`. | Not re-scorable. The 3 `activity_summary` rows would still fail (an unread section fails on every factor). The other 96 would pass only if the model recommended escalate and cited the empty field on a risk factor alone. If it recommended close, this rule still fails. The answer was dropped either way. |
+| Same failure only on stage 2 (`stage2_advice` null; recorded recommendation `close`) | 18 (1 suspicious, 17 benign) | Not re-scorable. Stage 2's answer was dropped the same way, so we cannot tell whether a passing check would have changed the recorded close. |
+| Every other row | 1,904 | Unchanged. This rule only accepts some escalate answers the old check rejected. It does not fail an answer the old check accepted, and earlier failures never reached this check. |
+
+Recall on suspicious cases and escalation of benign cases therefore cannot be compared. Log
+rejected answers later without PII (cited field names, which factor, and the recommendation; not
+the narrative or KYC values) so a rule change like this can be re-scored.
 
 ## Two-stage and the blind test
 

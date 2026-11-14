@@ -342,6 +342,49 @@ def test_citing_an_empty_kyc_field_is_refused():
     assert (out.failure or "").startswith("cited fields not read or empty")
 
 
+def test_citing_an_empty_kyc_field_as_a_risk_factor_stands():
+    """Escalate may cite an empty field on a risk factor. The outcome is still escalate."""
+    s = snap()
+    s["kyc"] = {**s["kyc"], "occupation": "", "notes": ""}
+    a = answer(s, "escalate")
+    a["risk_factors"][0]["kyc_fields"] = ["occupation", "notes"]
+    a["mitigating_factors"] = []
+    out = triage.check_snapshot(a, s)
+    assert out.failure is None
+    assert out.recommendation == "escalate"
+    assert out.advice is not None and out.advice["recommendation"] == "escalate"
+
+
+def test_escalate_citing_an_empty_kyc_field_as_mitigating_is_refused():
+    s = snap()
+    s["kyc"] = {**s["kyc"], "notes": ""}
+    a = answer(s, "escalate")
+    a["mitigating_factors"][0]["kyc_fields"] = ["notes"]
+    out = triage.check_snapshot(a, s)
+    assert out.recommendation == "escalate"
+    assert (out.failure or "").startswith("cited fields not read or empty")
+
+
+def test_close_citing_an_empty_kyc_field_as_a_risk_factor_is_refused():
+    s = snap()
+    s["kyc"] = {**s["kyc"], "notes": ""}
+    a = answer(s, "close")
+    a["risk_factors"][0]["kyc_fields"] = ["notes"]
+    out = triage.check_snapshot(a, s)
+    assert out.recommendation == "escalate"
+    assert (out.failure or "").startswith("cited fields not read or empty")
+
+
+def test_citing_an_unread_field_as_a_risk_factor_is_refused():
+    s = snap()
+    a = answer(s, "escalate")
+    a["risk_factors"][0]["kyc_fields"] = ["activity_summary"]
+    a["mitigating_factors"] = []
+    out = triage.check(a, {t["txn_id"] for t in s["flagged_transactions"]}, s["kyc"], set())
+    assert out.recommendation == "escalate"
+    assert (out.failure or "").startswith("cited fields not read or empty")
+
+
 def test_a_flagged_instruction_memo_blocks_close():
     s = snap()
     a = answer(s, "close")

@@ -162,6 +162,16 @@ def _empty(value: Any) -> bool:
     return value is None or value == "" or value == [] or value == {}
 
 
+def _unread(name: str, kyc: dict[str, Any], sections: set[str]) -> bool:
+    if name in SECTIONS:
+        return name not in sections
+    return name not in kyc
+
+
+def _empty_kyc(name: str, kyc: dict[str, Any]) -> bool:
+    return name not in SECTIONS and name in kyc and _empty(kyc[name])
+
+
 def check(
     answer: Any, known_ids: set[str], kyc: dict[str, Any], sections: set[str]
 ) -> TriageOutcome:
@@ -172,7 +182,10 @@ def check(
     read the profile). sections: which of activity_summary and prior_alerts it read.
 
     - every cited transaction id was shown to the reviewer;
-    - every cited KYC field was read and is not empty (citing an empty `notes` cites nothing);
+    - every cited KYC field or section was read. An empty KYC field fails when a mitigating
+      factor cites it, and on any cite when the recommendation is close. Escalate may cite an
+      empty field on a risk factor only (occupation missing). That failure would still escalate,
+      so the relaxation does not change the outcome; close stays as strict as main;
     - escalate cites at least one transaction;
     - close cites at least one transaction in a mitigating factor, and is refused when the
       reviewer itself flagged a memo that tries to instruct it: that goes to a person."""
@@ -188,12 +201,13 @@ def check(
     unknown = sorted(cited_ids(answer) - known_ids)
     if unknown:
         return failed(f"cited ids not in case: {', '.join(unknown[:5])}")
-    fields = {f for x in answer.risk_factors + answer.mitigating_factors for f in x.kyc_fields}
+    mitigating = {f for x in answer.mitigating_factors for f in x.kyc_fields}
+    cited = mitigating | {f for x in answer.risk_factors for f in x.kyc_fields}
+    close = answer.recommendation == "close"
     bad = sorted(
         f
-        for f in fields
-        if (f in SECTIONS and f not in sections)
-        or (f not in SECTIONS and (f not in kyc or _empty(kyc[f])))
+        for f in cited
+        if _unread(f, kyc, sections) or (_empty_kyc(f, kyc) and (close or f in mitigating))
     )
     if bad:
         return failed(f"cited fields not read or empty: {', '.join(bad)}")
