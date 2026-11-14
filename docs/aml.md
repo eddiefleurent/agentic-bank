@@ -637,3 +637,70 @@ policy refuses any encrypt whose context is not `{case_id, token}`, and CloudWat
 actual and 100% forecasted ([deploy.md](deploy.md#cost)); the address is `budget_alert_email` in
 the gitignored bootstrap tfvars.
 
+## Decision-model second opinion (demo)
+
+A local demo, not a deploy and not an eval. Bedrock has no decision models yet, so we rent one
+on OpenRouter: [Morph Reflex](https://openrouter.ai/morph/reflex) (`morph/reflex`, pinned) returns
+p(escalate) and a suspicion probability. The Bedrock baseline stays the primary recommendation.
+This does not close an alert.
+
+The payload is the case snapshot, tokenized with the same `pii.py` as disputes: names and long
+digit runs become tokens, and KYC notes, memos, and expected countries stay. p(escalate) ≥ 0.9
+is an auto-escalate band. p(escalate) ≤ 0.1 is a likely-close band that a person still reads:
+nothing here auto-closes. Anything in between is unsure. A missing key, a timeout, or a bad
+response is no opinion, with one stderr line (HTTP status or exception type). The request sends
+`provider.zdr: true`.
+
+Renting Reflex is a hosted call at $0.042 per million input tokens. Owning the model means
+training one on the bank's own cases and running it inside the bank, as Coinbase did with a
+post-trained Qwen3.5-9B fraud model. The bank then calibrates the number it branches on.
+
+### First run
+
+The first digest stripped notes and memos. Reflex escalated all 10 cases at 0.97–1.00 (cost
+$0.0004), including the benign ones, because the escalate criterion is "Nothing documented
+explains it". The payload now keeps tokenized notes and memos. The same 10 cases then ran from
+0.01 to 1.00 (OpenRouter reported $0.007219).
+
+| | before (notes stripped) | after (tokenized snapshot) |
+| --- | --- | --- |
+| p(escalate) | 0.97–1.00 on all 10 | 0.01–1.00 |
+| cost | $0.0004 | $0.007219 |
+
+```
+case            label            bedrock   p(escalate)  band                                                        agrees
+base/LABEL-003  suspicious       escalate  0.96         auto-escalate band                                          yes
+base/LABEL-005  suspicious       close     0.97         auto-escalate band                                          no
+base/LABEL-006  suspicious       close     1.00         auto-escalate band                                          no
+base/LABEL-011  suspicious       escalate  1.00         auto-escalate band                                          yes
+base/LABEL-001  benign           escalate  0.01         likely-close band (still human-reviewed, never auto-close)  no
+base/LABEL-002  benign           close     0.88         unsure → human                                              no
+base/LABEL-004  benign           close     0.05         likely-close band (still human-reviewed, never auto-close)  yes
+deep/LABEL-003  suspicious/hops  close     0.41         unsure → human                                              yes
+deep/LABEL-004  suspicious/hops  close     0.98         auto-escalate band                                          no
+deep/LABEL-007  benign/hops      escalate  0.99         auto-escalate band                                          yes
+```
+
+```bash
+uv run python proofs/aml_decision_demo.py
+uv run python proofs/aml_decision_demo.py --all --model nace-ai/drex-max-finance
+```
+
+The script prints ten rows (suspicious, benign, and deep) and the OpenRouter cost. It reads the
+stored Bedrock recommendation from `evals/aml/results`. `--with-bedrock` calls the baseline live
+and is off by default. The ten-row demo caps decision calls at 10. `--all` runs every base, deep,
+and blind-deep case through the same loop (abort above $1 reported) and writes the cascade next
+to the stored rows. `--model` selects the decision model; Reflex is the default.
+
+### 66 deep cases
+
+| | Reflex | Drex | Baseline | Graph |
+| --- | --- | --- | --- | --- |
+| Recall | 97% | 85% | 88% | 94% |
+| Deep recall | 88% | 62% | 50% | 88% |
+| Benign false escalations | 42% | 33% | 52% | 64% |
+| $ per case | $0.0008 | $0.0006 | $0.0025 | $0.0115 |
+
+Reflex put 0 suspicious cases in likely-close.
+Drex put 3 deep suspicious cases there at p≈0.03, so Reflex is the router default.
+
