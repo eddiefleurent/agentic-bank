@@ -446,9 +446,11 @@ data "aws_iam_policy_document" "boundary" {
     resources = ["${format(local.arn_prefix, "dynamodb")}:table/agentic-bank-*"]
   }
   statement {
-    sid       = "AssumeDataReader"
-    actions   = ["sts:AssumeRole"]
-    resources = [for r in ["data-reader", "proposer", "approver", "case-writer", "data-writer"] : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/agentic-bank-app-${r}"]
+    sid     = "AssumeDataReader"
+    actions = ["sts:AssumeRole"]
+    # case-reader: AML review (infra/app/aml.tf). Its own policy is CASE#A-* reads; this line only
+    # lets an app role assume it. Apply this root before the app root that creates the role.
+    resources = [for r in ["data-reader", "proposer", "approver", "case-writer", "data-writer", "case-reader"] : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/agentic-bank-app-${r}"]
   }
   # Proposals, approvals and revocations. Which attributes and rows a role may write is narrowed
   # by its own policy and session policy; this is only the ceiling.

@@ -1,11 +1,13 @@
 # AML alert triage
 
 > **Status: slices 1, 2, 2b, two rounds of the two-stage test, and slice 3 done. Slice 3 is
-> applied and AWS-verified (2026-11-13, `proofs/aml_triage.py`: all checks pass).** Data (a base and a "deep" variant), rules, the case
-> snapshot, three reviewers (one model call; a Strands agent team on the snapshot; the same team
-> exploring the whole transaction graph) and an eval harness exist. Slices 1-2 were measured locally
-> against Bedrock (model calls only, 2026-11-12). Slice 3 deploys the one-call baseline behind Step
-> Functions. Everything is synthetic and fictional.
+> applied and AWS-verified (2026-11-13, `proofs/aml_triage.py`: all checks pass) on the shared
+> data-reader role. The case-reader role is pending a human bootstrap apply, then the app apply.**
+> Data (a base and a "deep" variant), rules, the case snapshot, three reviewers (one model call; a
+> Strands agent team on the snapshot; the same team exploring the whole transaction graph) and an
+> eval harness exist. Slices 1-2 were measured locally against Bedrock (model calls only,
+> 2026-11-12). Slice 3 deploys the one-call baseline behind Step Functions. Everything is synthetic
+> and fictional.
 
 ## Slice 1: data, rules, snapshot
 
@@ -531,9 +533,11 @@ of shallow false escalations. Spend: about $2.6 including a discarded partial ru
 
 ## Slice 3: the v1 reviewer on AWS
 
-> **Applied and AWS-verified 2026-11-13.** `proofs/aml_triage.py` passed: a suspicious alert
+> **Applied and AWS-verified 2026-11-13** on the shared data-reader role: a suspicious alert
 > escalated, a benign one queued for a person (not closed), and the reviewer got AccessDenied on
-> another case, a Scan and a write. The deploy from main then planned "No changes".
+> another case, a Scan and a write. The case-reader role in this section is in the tree and **not
+> applied yet** (bootstrap, then the app). `proofs/aml_triage.py` has the new check and has not
+> been re-run.
 
 ![One AML alert on AWS](diagrams/06-aml-triage.png)
 
@@ -564,7 +568,7 @@ fails if it drifts from the pydantic model.
 
 | Risk | Control | Enforced by |
 | --- | --- | --- |
-| The reviewer reads another customer's case (bug or injected text) | Its own role has no table rights. It assumes the data-reader role with a session policy pinning `dynamodb:LeadingKeys` to `CASE#<alert_id>` | AWS IAM (proof: another case, a Scan and a write are AccessDenied) |
+| The reviewer reads another case, or a customer row if the session policy is dropped | Its own role has no table rights. It assumes `agentic-bank-app-case-reader`, whose policy allows only `dynamodb:GetItem` and `dynamodb:Query` when `dynamodb:LeadingKeys` matches `CASE#A-*` (the prefix `open_case` writes). The session policy still pins one `CASE#<alert_id>`. A customer partition is the Cognito `sub`, so it does not match | AWS IAM (proof: another case, a Scan and a write are AccessDenied; with no session policy a customer partition is AccessDenied). Pending the bootstrap apply below |
 | The alert id widens that policy (`A-*`) | `case_key` accepts only `A-` plus 4 digits before it is used in a key or a policy | Our code |
 | The reviewer changes data | No write action in any policy it can reach | AWS IAM |
 | The AML worker touches money or customer rows | PutItem and Query only where every partition key matches `CASE#A-*`, PutItem only with the listed attributes | AWS IAM (`aml.tf`) |
@@ -581,11 +585,19 @@ fails if it drifts from the pydantic model.
 - **No analyst screen for the AML queue.** Rows wait with `analyst_queue = "aml"` (the dispute
   analyst reads `"open"`, so the queues stay apart). A bank: a case-management tool, four-eyes on
   closes, a full audit trail.
-- **The reviewer reuses the data-reader role.** The workload boundary (infra/bootstrap) lets app
-  roles assume only five named roles, so a dedicated AML case-reader role needs a bootstrap change
-  by a human admin. Today, a bug that dropped the session policy would let the reviewer read
-  customer rows. A bank would add a case-reader role whose own policy is limited to `CASE#*`, so the
-  session policy narrows a role that is already narrow.
+- **Case-reader is written, not applied.** The reviewer now assumes `agentic-bank-app-case-reader`
+  instead of the shared data-reader. The role's own policy allows only `GetItem` and `Query` on the
+  data table, and only when every `dynamodb:LeadingKeys` value matches `CASE#A-*` (the prefix
+  `open_case` writes; no Scan, no writes). The per-case session policy stays, so one review still
+  sees one alert. Dropping that session policy can read other AML case partitions (`CASE#A-*`), not
+  customer rows. A customer partition is the Cognito `sub` (the seed in `infra/app/data.tf` writes
+  `aws_cognito_user.customer.sub`). **Apply bootstrap first, then the app.** The workload boundary
+  (`infra/bootstrap`) must name `case-reader` before any app role can assume it. If the app lands
+  first, the review Lambda points at a role the boundary does not yet allow, and reviews fail closed
+  until bootstrap is applied. Do not run `proofs/aml_triage.py` until both applies have landed.
+- **Account-root trust is a known shortcut**, the same one as data-reader. The case-reader role
+  trusts the account root so an admin can assume it for the proof. A bank would trust a named
+  proof or break-glass role, not the account root.
 - **Writes one row at a time.** The boundary allows PutItem, not BatchWriteItem: about 300 calls,
   2-4 s.
 - **Logs.** Each review logs one line (tokens, stop reason, failure); the state machine has no

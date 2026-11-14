@@ -7,8 +7,9 @@ Two Lambdas, two roles:
     check   read the case again with its own credentials -> `triage.check` on the model's answer
     record  write the checked recommendation to the analyst queue (analyst_queue = "aml")
   agentic-bank-aml-review  `review_handler`: the one-call baseline. Reads ONLY its own case,
-    through the data-reader role with a session policy pinning dynamodb:LeadingKeys to
-    CASE#<alert_id>. No write rights anywhere; its only other right is the one model.
+    through the case-reader role. That role allows GetItem and Query only on CASE#A-* partitions;
+    the session policy still pins dynamodb:LeadingKeys to CASE#<alert_id>. No write rights
+    anywhere; its only other right is the one model.
 
 v1 is human-only: nothing here closes an alert, files a report or contacts the customer. A
 `close` is advice an analyst reads; the queue row is the end of the workflow.
@@ -119,7 +120,7 @@ def case_reader(alert_id: str) -> Any:
     """A DynamoDB client that can read CASE#<alert_id> and nothing else (AWS enforces it)."""
     key = snapshot.case_key(alert_id)
     session = scoped_session(
-        "DATA_READER_ROLE_ARN",
+        "CASE_READER_ROLE_ARN",
         key,
         os.environ["TABLE_ARN"],
         READ,

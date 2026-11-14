@@ -3,7 +3,7 @@
 #
 #   aml Lambda (open): rules + snapshot -> PutItem rows into partition CASE#<alert_id> -> start
 #   state machine agentic-bank-aml-triage:
-#     Review  aml-review Lambda: data-reader session pinned to CASE#<alert_id>, one gpt-oss call
+#     Review  aml-review Lambda: case-reader session pinned to CASE#<alert_id>, one gpt-oss call
 #     Check   aml Lambda: reads the case again itself, triage.check on the model's answer
 #     Record  aml Lambda: RECOMMENDATION row, analyst_queue = "aml", status awaiting_analyst
 #
@@ -36,10 +36,12 @@ locals {
     { Effect = "Allow", Action = "dynamodb:Query", Resource = local.table_arn, Condition = local.aml_case_only },
     { Effect = "Allow", Action = "states:StartExecution", Resource = local.aml_machine_arn },
   ]
-  # The reviewer: its own role has NO table rights. It reads only by assuming the data-reader role
-  # with a session policy for its one case (shared/data.py session_policy), and calls one model.
+  # The reviewer: its own role has NO table rights. It reads only by assuming the case-reader role
+  # (identity policy: GetItem/Query, LeadingKeys like CASE#A-*) with a session policy for its one
+  # case (shared/data.py session_policy), and calls one model.
+  case_reader_role_arn = "arn:aws:iam::${local.account}:role/agentic-bank-app-case-reader"
   aml_review_grants = [
-    { Effect = "Allow", Action = "sts:AssumeRole", Resource = local.data_reader_role_arn },
+    { Effect = "Allow", Action = "sts:AssumeRole", Resource = local.case_reader_role_arn },
     { Effect = "Allow", Action = "bedrock:InvokeModel", Resource = "arn:aws:bedrock:us-east-1::foundation-model/${local.aml_model}" },
   ]
 }
@@ -89,4 +91,45 @@ resource "aws_sfn_state_machine" "aml" {
     review_arn = aws_lambda_function.fn["aml-review"].arn
   })
   depends_on = [aws_iam_role_policy.aml_workflow]
+}
+
+# --- case-reader: dropping the session policy still cannot read a customer partition ---
+# GetItem and Query only, and only when every LeadingKeys value matches CASE#A-* (the prefix
+# open_case writes). No Scan, no writes. The review Lambda still passes a session policy for one
+# CASE#<alert_id>. Account-root trust is the same shortcut as data-reader: it lets the admin proof
+# assume this role (proofs/aml_triage.py). A bank would trust a named proof or break-glass role.
+data "aws_iam_policy_document" "case_reader_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type = "AWS"
+      identifiers = [
+        aws_iam_role.lambda["aml-review"].arn,
+        "arn:aws:iam::${local.account}:root",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "case_reader" {
+  name                 = "agentic-bank-app-case-reader"
+  assume_role_policy   = data.aws_iam_policy_document.case_reader_trust.json
+  permissions_boundary = local.boundary_arn
+}
+
+resource "aws_iam_role_policy" "case_reader" {
+  name = "read-case-partitions"
+  role = aws_iam_role.case_reader.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["dynamodb:GetItem", "dynamodb:Query"]
+      Resource = aws_dynamodb_table.data.arn
+      Condition = {
+        "ForAllValues:StringLike" = { "dynamodb:LeadingKeys" = ["CASE#A-*"] }
+        "Null"                    = { "dynamodb:LeadingKeys" = "false" }
+      }
+    }]
+  })
 }

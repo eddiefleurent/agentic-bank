@@ -83,7 +83,7 @@ locals {
       package = "aml"
       env = {
         TABLE_ARN            = local.table_arn
-        DATA_READER_ROLE_ARN = local.data_reader_role_arn
+        CASE_READER_ROLE_ARN = local.case_reader_role_arn
         MODEL_ID             = local.aml_model
       }
       timeout = 120 # one gpt-oss call over ~15k tokens took about 10 s in the evals

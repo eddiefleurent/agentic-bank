@@ -5,9 +5,11 @@
 '   2   ~300 PutItem rows into partition CASE#<alert_id> of the data table. The aml role may write
 '       only CASE#A-* partitions and only the listed attributes (LeadingKeys + Attributes conditions).
 '   3   StartExecution with {alert_id} only: no case data in the workflow input.
-'   4-5 Review: the aml-review role has no table rights. It assumes the data-reader role with a
-'       session policy pinning LeadingKeys to CASE#<alert_id>: another case, a Scan or a write is
-'       AccessDenied from AWS. Memos arrive renamed memo_untrusted.
+'   4-5 Review: the aml-review role has no table rights. It assumes the case-reader role. That role's
+'       own policy allows GetItem and Query only when LeadingKeys matches CASE#A-* (no Scan, no writes).
+'       The session policy still pins LeadingKeys to CASE#<alert_id>. Another case, a customer
+'       partition, a Scan or a write is AccessDenied. Dropping the session policy still cannot read
+'       a customer row. Memos arrive renamed memo_untrusted.
 '   6   One gpt-oss Converse call over the whole bounded snapshot (the eval winner).
 '   7   Check (plain code): reads the case again itself; cited ids must be in the case, cited KYC
 '       fields non-empty, a flagged instruction memo blocks close. Any failure -> escalate.
@@ -30,7 +32,7 @@ P -> W : open(alert_id)
 W -> D : Put case rows
 W -> S : StartExecution
 S -> R : Review
-R -> D : Query own case only
+R -> D : Query own case\n(case-reader, CASE#A-*)
 R -> M : one Converse call
 S -> W : Check (code)
 W -> D : Put RECOMMENDATION (queue)

@@ -6,13 +6,18 @@
    labels never go to AWS). For each: invoke agentic-bank-aml {action: open} (rules + snapshot ->
    partition CASE#<alert_id> -> start agentic-bank-aml-triage), wait for the execution, read the
    RECOMMENDATION row. Suspicious must be escalate; both must wait for a person (never closed).
-2. Deliberate failure: the reviewer's own credential builder (`handler.case_reader`, the data-reader
+2. Deliberate failure: the reviewer's own credential builder (`handler.case_reader`, the case-reader
    role with a session policy for ONE case) reads its case, then tries the other case, a Scan and a
    write. AWS must answer AccessDenied to all three.
-3. Cleanup: every row of both CASE# partitions is deleted (admin credentials), pass or fail.
+3. The same role assumed with no session policy still reads that CASE#A-<alert_id> partition (the
+   role allows CASE#A-*, the prefix open_case writes), and a customer partition is AccessDenied.
+   The customer key is the Cognito sub (Stack.subject; the seed writes that same value), which is
+   not a CASE# partition. That deny is the role policy, not the session policy.
+4. Cleanup: every row of both CASE# partitions is deleted (admin credentials), pass or fail.
 
-Needs admin credentials allowed to invoke Lambda, read Step Functions, assume the data-reader role
-(its trust allows the account) and delete items. Two gpt-oss calls: under one cent.
+Needs admin credentials allowed to invoke Lambda, read Step Functions, assume the case-reader role
+(its trust allows the account), read the customer pool (the customer partition key) and delete
+items. Two gpt-oss calls: under one cent.
 """
 
 import json
@@ -23,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import boto3
-from _common import REGION, check, run
+from _common import REGION, Stack, check, run
 from botocore.exceptions import ClientError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +38,7 @@ from evals.aml import harness  # noqa: E402  labels stay on this machine
 
 TABLE = "agentic-bank-data"
 FUNCTION = "agentic-bank-aml"
-ROLE = "agentic-bank-app-data-reader"
+ROLE = "agentic-bank-app-case-reader"
 # Both were judged right by the baseline in the slice 2 eval run (evals/aml/results/baseline.md).
 
 
@@ -126,22 +131,23 @@ def main() -> None:
         table_arn = ddb.describe_table(TableName=TABLE)["Table"]["TableArn"]
         account = table_arn.split(":")[4]
         os.environ["TABLE_ARN"] = table_arn
-        os.environ["DATA_READER_ROLE_ARN"] = f"arn:aws:iam::{account}:role/{ROLE}"
+        os.environ["CASE_READER_ROLE_ARN"] = f"arn:aws:iam::{account}:role/{ROLE}"
         os.environ.setdefault("AWS_DEFAULT_REGION", REGION)
         reader = handler.case_reader(sus.alert.alert_id)
 
-        def query(alert_id: str) -> Any:
-            return lambda: reader.query(
+        def query(client: Any, key: str) -> Any:
+            return lambda: client.query(
                 TableName=TABLE,
                 KeyConditionExpression="customer = :c",
-                ExpressionAttributeValues={":c": {"S": f"CASE#{alert_id}"}},
+                ExpressionAttributeValues={":c": {"S": key}},
             )
 
-        own = query(sus.alert.alert_id)()["Items"]
+        own_key = f"CASE#{sus.alert.alert_id}"
+        own = query(reader, own_key)()["Items"]
         check(f"reviewer for {sus.alert.alert_id}: reads its own case", bool(own))
         check(
             f"reviewer for {sus.alert.alert_id}: CASE#{ben.alert.alert_id} is AccessDenied",
-            denied(query(ben.alert.alert_id)),
+            denied(query(reader, f"CASE#{ben.alert.alert_id}")),
         )
         check("reviewer: Scan is AccessDenied", denied(lambda: reader.scan(TableName=TABLE)))
         check(
@@ -154,6 +160,34 @@ def main() -> None:
                         "sk": {"S": "RECOMMENDATION"},
                         "recommendation": {"S": "close"},
                     },
+                )
+            ),
+        )
+
+        # No session policy: the role itself allows CASE#A-* and refuses every other partition.
+        # Customer rows are keyed by the Cognito sub (seeded in infra/app/data.tf), not CASE#.
+        bare_creds = boto3.client("sts").assume_role(
+            RoleArn=f"arn:aws:iam::{account}:role/{ROLE}",
+            RoleSessionName="aml-case-reader-no-policy",
+        )["Credentials"]
+        bare = boto3.client(
+            "dynamodb",
+            region_name=REGION,
+            aws_access_key_id=bare_creds["AccessKeyId"],
+            aws_secret_access_key=bare_creds["SecretAccessKey"],
+            aws_session_token=bare_creds["SessionToken"],
+        )
+        check(
+            "case-reader with no session policy: its own CASE# partition is readable",
+            bool(query(bare, own_key)()["Items"]),
+        )
+        customer = Stack().subject("alex")  # Cognito sub: the real customer partition key
+        check(
+            "case-reader with no session policy: a customer partition is AccessDenied",
+            denied(
+                lambda: bare.get_item(
+                    TableName=TABLE,
+                    Key={"customer": {"S": customer}, "sk": {"S": "ACCT#acc_alex_chk"}},
                 )
             ),
         )
