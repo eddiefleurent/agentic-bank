@@ -112,7 +112,7 @@ PII KMS key); a day of proof runs stays under $0.20. Step by step, with proofs, 
 - [Evaluation](docs/evaluation.md): the dispute reviewer on 150 synthetic labeled cases, with measured error rates
 - [Decision records](docs/decisions/README.md): ten short ADRs
 - [Dispute investigator](docs/investigator.md): a bounded multi-agent reviewer (planned, not deployed)
-- [Policy assistant](docs/rag.md) (planned, not deployed): fee and policy answers with citations from a Bedrock Knowledge Base
+- [Policy assistant](docs/rag.md) (on by default; locally tested, not AWS-verified): fee and policy answers with citations from a Bedrock Knowledge Base
 - [Sequence diagrams](docs/diagrams/): read path, transfer, dispute, analyst round
 - [Ask DeepWiki](https://deepwiki.com/eddiefleurent/agentic-bank): a generated wiki of this repo you can ask questions
 

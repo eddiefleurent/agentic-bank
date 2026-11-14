@@ -27,7 +27,7 @@ Diagrams:
 | Analyst | Lambda `agentic-bank-analyst` behind a function URL (`AWS_IAM`), human role `agentic-bank-app-analyst`, sparse GSI `analyst_queue` |
 | PII vault | DynamoDB `agentic-bank-vault`; KMS key `alias/agentic-bank-pii` (bootstrap; only the analyst function may decrypt) |
 | Bank app: list, approve, reject, revoke agent | HTTP API `agentic-bank-app` (JWT authorizer, `app` client only) -> Lambda `agentic-bank-approvals`, assumes `agentic-bank-app-approver`; CLI `scripts/bank_app.py` plays the phone |
-| Policy assistant `ask_policy`, `lookup_policy` (**planned, not deployed**) | Bedrock Knowledge Base `agentic-bank-policies` on S3 Vectors, Titan Text Embeddings v2, one chunk per document section; tools Lambda sets the `audience = customer` filter from the caller's identity. Terraform written and off (`var.knowledge_base`); logic measured in local mode only. See [rag.md](rag.md) |
+| Policy assistant `ask_policy`, `lookup_policy` (**implemented, on by default; locally tested, not AWS-verified**) | Bedrock Knowledge Base `agentic-bank-policies` on S3 Vectors, Titan Text Embeddings v2, one chunk per document section; tools Lambda sets the `audience = customer` filter from the caller's identity. `var.knowledge_base` defaults to true (`0c8a16d`); deploy re-indexes. Answer-path numbers are local mode only. See [rag.md](rag.md) |
 | Data | DynamoDB `agentic-bank-data` (accounts, transactions, payees, transfers, cases, refund slots, audit), `agentic-bank-revocations`; synthetic customers alex, sam, jordan |
 
 ## Patterns
@@ -81,8 +81,7 @@ Run the proofs: see [deploy.md](deploy.md#run-the-proofs).
 
 ## Known limits (lean build)
 
-Planned, not deployed: the policy assistant ([rag.md](rag.md)). Its audience filter is enforced
-by our code, not IAM, and its score threshold is calibrated only in local mode.
+The policy assistant ships in Terraform and was measured in local mode ([rag.md](rag.md)). It is not AWS-verified. Its audience filter is enforced by our code, not IAM, and its score threshold is the local cosine cutoff.
 
 Checked with the awslabs Well-Architected Security MCP server (read-only, SecurityAudit role). Findings not yet fixed are listed below.
 
