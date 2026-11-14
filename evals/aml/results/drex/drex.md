@@ -53,9 +53,9 @@ Truly suspicious is the share of that band whose label is suspicious.
 
 The cascade sends these to the close queue. A person still reads them.
 
-- deep/LABEL-003 hops p=0.026159613544952467
-- deep/LABEL-020 hops p=0.046121257429546536
-- deep/LABEL-049 hops p=0.026159613544952467
+- deep/LABEL-003 hops p=0.0261596135
+- deep/LABEL-020 hops p=0.0461212574
+- deep/LABEL-049 hops p=0.0261596135
 
 ## Stored runs
 
