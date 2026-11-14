@@ -107,6 +107,7 @@ PII KMS key); a day of proof runs stays under $0.20. Step by step, with proofs, 
 ## Docs
 
 - [Architecture](docs/architecture.md): what runs where, patterns, risk to control, known limits
+- [Indirect prompt injection](docs/redteam.md): a customer agent reading hostile order text (written, not yet run)
 - [Demos](docs/demos.md): full transcripts and each request step by step
 - [Deploy and prove](docs/deploy.md): bootstrap, pipeline, proofs, teardown, cost
 - [Evaluation](docs/evaluation.md): the dispute reviewer on 150 synthetic labeled cases, with measured error rates

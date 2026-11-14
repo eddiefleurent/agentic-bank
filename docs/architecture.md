@@ -64,7 +64,7 @@ Diagrams:
 | Agent learns or redirects the destination account | Payees by ID, bank-owned rows, account number tokenized (decision 0006) | `proofs/transfer_approval.py` |
 | Compromised agent keeps working | Customer revokes in the bank app; interceptor refuses tokens with `auth_time <= revoked_at` on the next call (decision 0005) | `proofs/revoke_agent.py` |
 | Stolen access token | Expires in 15 minutes; revocation cuts it at once, and the cutoff only moves forward | `proofs/revoke_agent.py` |
-| Injected merchant text steers the agent | Explain output labels text `*_untrusted`; transfer execution still requires customer approval. Read-path proof does not test an external agent's injection resistance | `proofs/explain_charge.py` |
+| Injected merchant text steers the agent | Explain output labels text `*_untrusted`; transfer execution still requires customer approval. A customer-agent proof is specified in [redteam.md](redteam.md) and has not been run | `proofs/explain_charge.py` (read path), `proofs/redteam_injection.py` (not yet run) |
 | Stolen access token lives long | 15-minute validity, checked on the real token (`exp - iat = 900`) | `proofs/explain_charge.py` |
 | Agent explains another customer's charge | Same scoped reader: "no such transaction" | `proofs/explain_charge.py` |
 | Model pays, denies or invents evidence | Model output has no amount or outcome; the model scores C1-C3 without seeing code's scores and any disagreement goes to a person (rule 2); any -1 goes to a person; grounding is a weak signal; code decides (decision 0007) | `proofs/dispute_paths.py`, `tests/test_decide.py` |
@@ -78,6 +78,21 @@ Diagrams:
 | Pipeline grants itself decrypt | Apply role has no direct `kms:Decrypt` and no `kms:PutKeyPolicy`, so it cannot decrypt the vault or rewrite the key policy. It can still replace the analyst Lambda, whose role can decrypt, and invoke it. Deployment administrators are trusted with that path in this demo. KMS stops other runtime roles; it does not isolate PII from whoever deploys the analyst function. | `proofs/apply_ceiling.sh` |
 
 Run the proofs: see [deploy.md](deploy.md#run-the-proofs).
+
+## Indirect prompt injection
+
+A customer brings their own agent. That agent holds three things at once, which is the lethal
+trifecta: it can read the customer's private data, it is shown text the customer did not write
+(merchant and order fields), and it has tools that act (propose a transfer, file a dispute, put
+text in a memo). A hostile sentence in an order can ask the agent to do any of those. The bank
+does not control the agent's prompt, so a refusal in the model is not the control.
+
+The layers under the model, and a six-order proof that has been written but not run, are in
+[redteam.md](redteam.md). Short version: Cedar allows a tool only with its scope and caps a
+proposal at $1,000; the tools read only this customer's partition, with IAM `LeadingKeys` behind
+that; a payee is a bank-owned id, not an account number the agent can type; `propose_transfer`
+writes `PENDING` and the agent's token cannot approve. An optional prompt-attack guardrail is
+defined in Terraform and is not attached to the gateway or the dispute reviewer.
 
 ## Known limits (lean build)
 

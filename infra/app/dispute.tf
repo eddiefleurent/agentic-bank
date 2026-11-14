@@ -173,6 +173,29 @@ resource "aws_bedrock_guardrail_version" "grounding" {
   description   = "thresholds 0.65 / 0.7"
 }
 
+# Prompt-attack filter for the optional red-team flag (proofs/redteam_injection.py --guardrail).
+# Nothing in the gateway, the tools Lambda, or the dispute reviewer references this guardrail.
+# A later apply creates it; it is not attached to a model call by this stack.
+resource "aws_bedrock_guardrail" "prompt_attack" {
+  name                      = "agentic-bank-prompt-attack"
+  description               = "Optional red-team input filter. Not attached to any model call."
+  blocked_input_messaging   = "Blocked."
+  blocked_outputs_messaging = "Blocked."
+
+  content_policy_config {
+    filters_config {
+      type            = "PROMPT_ATTACK"
+      input_strength  = "HIGH"
+      output_strength = "NONE"
+    }
+  }
+}
+
+resource "aws_bedrock_guardrail_version" "prompt_attack" {
+  guardrail_arn = aws_bedrock_guardrail.prompt_attack.guardrail_arn
+  description   = "prompt-attack filter, not wired to a model call"
+}
+
 # --- the workflow (Step Functions Standard, JSONata) ---
 data "aws_iam_policy_document" "workflow_trust" {
   statement {
