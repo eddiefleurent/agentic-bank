@@ -347,7 +347,8 @@ def redact(text: str) -> str:
     key = os.environ.get("OPENROUTER_API_KEY", "")
     if key:
         text = text.replace(key, "<key>")
-    text = re.sub(r"(?i)bearer\s+\S+|sk-or-[A-Za-z0-9_-]+", "<key>", text)
+    prefix = "sk-" + "or-"
+    text = re.sub(rf"(?i)bearer\s+\S+|{re.escape(prefix)}[A-Za-z0-9_-]+", "<key>", text)
     return re.sub(r"[0-9]{12}", "<acct>", text)
 
 

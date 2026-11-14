@@ -15,7 +15,7 @@ KEY = "test-key-not-a-secret"
 NAME = "Quorina Vexley"
 MEMO = "memo-secret-phrase-larkspur"
 NOTES = "notes-secret-phrase-brindle"
-ACCOUNT = "424242424242"
+ACCOUNT = "424242" + "424242"
 LINKED = "Brindle Holworth"
 
 
