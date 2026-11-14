@@ -232,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         print("OPENROUTER_API_KEY is not set; no decision call will be made.")
     opinions, _, _, _, _ = run_cases([snap for _, snap in loaded], args.model)
     stored = {variant: _lines(path) for variant, path in STORED.items()}
-    table = []
+    table: list[tuple[str, ...]] = []
     reported = 0.0
     saw_cost = False
     for (ref, snapshot), opinion in zip(loaded, opinions, strict=True):
@@ -245,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
         if opinion is None:
             p_text, band, choice = "—", "—", None
         else:
-            p_text, band, choice = f"{opinion.p_escalate:.2f}", opinion.band, opinion.choice
+            p_text, band, choice = f"{opinion.p_escalate:.2f}", str(opinion.band), opinion.choice
             if opinion.cost_usd is not None:
                 reported += opinion.cost_usd
                 saw_cost = True

@@ -106,7 +106,7 @@ def _cell(row: dict, source: str) -> tuple[str | None, float, bool]:
     if source in ("baseline", "graph"):
         hit = row.get("_base" if source == "baseline" else "_graph")
         rec = hit.get("recommendation") if hit else None
-        if rec not in ("close", "escalate"):
+        if hit is None or rec not in ("close", "escalate"):
             return None, 0.0, False
         return rec, hit.get("cost_usd") or 0.0, True
     cost = row.get("cost_usd") or 0.0
