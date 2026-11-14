@@ -27,7 +27,7 @@ Diagrams:
 | Analyst | Lambda `agentic-bank-analyst` behind a function URL (`AWS_IAM`), human role `agentic-bank-app-analyst`, sparse GSI `analyst_queue` |
 | PII vault | DynamoDB `agentic-bank-vault`; KMS key `alias/agentic-bank-pii` (bootstrap; only the analyst function may decrypt) |
 | Bank app: list, approve, reject, revoke agent | HTTP API `agentic-bank-app` (JWT authorizer, `app` client only) -> Lambda `agentic-bank-approvals`, assumes `agentic-bank-app-approver`; CLI `scripts/bank_app.py` plays the phone |
-| Policy assistant `ask_policy`, `lookup_policy` (**planned, not deployed**) | Bedrock Knowledge Base `agentic-bank-policies` on S3 Vectors, Titan Text Embeddings v2, one chunk per document section; tools Lambda sets the `audience = customer` filter from the caller's identity. Terraform written and off (`var.knowledge_base`); logic measured in local mode only. See [rag.md](rag.md) |
+| Policy assistant `ask_policy`, `lookup_policy` (**implemented, on by default; locally tested, not AWS-verified**) | Bedrock Knowledge Base `agentic-bank-policies` on S3 Vectors, Titan Text Embeddings v2, one chunk per document section; tools Lambda sets the `audience = customer` filter from the caller's identity. `var.knowledge_base` defaults to true (`0c8a16d`); deploy re-indexes. Answer-path numbers are local mode only. See [rag.md](rag.md) |
 | Data | DynamoDB `agentic-bank-data` (accounts, transactions, payees, transfers, cases, refund slots, audit), `agentic-bank-revocations`; synthetic customers alex, sam, jordan |
 
 ## Patterns
@@ -64,7 +64,7 @@ Diagrams:
 | Agent learns or redirects the destination account | Payees by ID, bank-owned rows, account number tokenized (decision 0006) | `proofs/transfer_approval.py` |
 | Compromised agent keeps working | Customer revokes in the bank app; interceptor refuses tokens with `auth_time <= revoked_at` on the next call (decision 0005) | `proofs/revoke_agent.py` |
 | Stolen access token | Expires in 15 minutes; revocation cuts it at once, and the cutoff only moves forward | `proofs/revoke_agent.py` |
-| Injected merchant text steers the agent | Explain output labels text `*_untrusted`; transfer execution still requires customer approval. Read-path proof does not test an external agent's injection resistance | `proofs/explain_charge.py` |
+| Injected merchant text steers the agent | Explain output labels text `*_untrusted`; transfer execution still requires customer approval. A customer-agent proof is specified in [redteam.md](redteam.md) and has not been run | `proofs/explain_charge.py` (read path), `proofs/redteam_injection.py` (not yet run) |
 | Stolen access token lives long | 15-minute validity, checked on the real token (`exp - iat = 900`) | `proofs/explain_charge.py` |
 | Agent explains another customer's charge | Same scoped reader: "no such transaction" | `proofs/explain_charge.py` |
 | Model pays, denies or invents evidence | Model output has no amount or outcome; the model scores C1-C3 without seeing code's scores and any disagreement goes to a person (rule 2); any -1 goes to a person; grounding is a weak signal; code decides (decision 0007) | `proofs/dispute_paths.py`, `tests/test_decide.py` |
@@ -79,22 +79,35 @@ Diagrams:
 
 Run the proofs: see [deploy.md](deploy.md#run-the-proofs).
 
+## Indirect prompt injection
+
+A customer brings their own agent. That agent holds three things at once, which is the lethal
+trifecta: it can read the customer's private data, it is shown text the customer did not write
+(merchant and order fields), and it has tools that act (propose a transfer, file a dispute, put
+text in a memo). A hostile sentence in an order can ask the agent to do any of those. The bank
+does not control the agent's prompt, so a refusal in the model is not the control.
+
+The layers under the model, and a six-order proof that has been written but not run, are in
+[redteam.md](redteam.md). Short version: Cedar allows a tool only with its scope and caps a
+proposal at $1,000; the tools read only this customer's partition, with IAM `LeadingKeys` behind
+that; a payee is a bank-owned id, not an account number the agent can type; `propose_transfer`
+writes `PENDING` and the agent's token cannot approve. An optional prompt-attack guardrail is
+defined in Terraform and is not attached to the gateway or the dispute reviewer.
+
 ## Known limits (lean build)
 
-Planned, not deployed: the policy assistant ([rag.md](rag.md)). Its audience filter is enforced
-by our code, not IAM, and its score threshold is calibrated only in local mode.
+The policy assistant ships in Terraform and was measured in local mode ([rag.md](rag.md)). It is not AWS-verified. Its audience filter is enforced by our code, not IAM, and its score threshold is the local cosine cutoff.
 
 Checked with the awslabs Well-Architected Security MCP server (read-only, SecurityAudit role). Findings not yet fixed are listed below.
 
 - No VPC, private endpoints or egress control; Lambdas call AWS over the public endpoints with TLS.
   A bank uses private subnets, interface endpoints and endpoint policies.
-- CloudWatch log groups and Lambda environment variables use AWS-managed keys, not a customer-managed key; a bank uses customer-managed KMS keys.
+- CloudWatch log groups for Lambdas and the HTTP API, and Lambda environment variables, use AWS-managed keys. The AML triage execution log group uses the customer-managed key `alias/agentic-bank-aml-logs` (infra/bootstrap). A bank uses customer-managed keys for the rest.
 - The vault table uses the AWS-owned table key by choice: its PII values are already envelope-encrypted with the PII KMS key and the `{case_id, token}` encryption context.
-- No WAF, custom login domain, CloudWatch alarms (denied calls, stuck workflows) or X-Ray tracing. No reserved concurrency on the Lambdas.
+- No WAF, custom login domain or X-Ray tracing. CloudWatch alarms cover AML triage (`ExecutionsFailed`, `ExecutionsTimedOut`, reviewer Lambda `Errors`); other workflows have none. No reserved concurrency on the Lambdas.
 - GuardDuty, Security Hub, IAM Access Analyzer and Macie are not enabled.
 - DynamoDB deletion protection is off so that teardown works; a bank turns it on.
-- Audit is one structured log line per tool call (subject, client_id, tool; 30-day retention), not a
-  queryable, fail-closed store.
+- Audit of tool calls is one structured log line (subject, client_id, tool; 30-day retention). An AML model call adds a line (alert id, model id, SHA-256 of the prompt, recommendation, check pass/fail; the evidence pack is not logged; 30-day Lambda retention). Neither is a queryable, fail-closed store. A five-year BSA archive (S3 Object Lock) is documented in [aml.md](aml.md) and not built.
 - Revocation is per customer and agent client: it cuts all of that customer's agents on the `agent` client.
 - Transfers: no push notification, device binding or CIBA; password sign-in, not SRP; no idempotency key
   on proposals; no daily or velocity limit; no ACH file, settlement or returns; adding payees not built.

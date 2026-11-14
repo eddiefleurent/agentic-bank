@@ -15,6 +15,7 @@ its reason. Anything that fails, raises, times out or hits a bound becomes `esca
 failure reason: in AML a missed suspicious case is the costly error, so failure goes to a person.
 """
 
+import hashlib
 import json
 import sys
 import time
@@ -162,6 +163,16 @@ def _empty(value: Any) -> bool:
     return value is None or value == "" or value == [] or value == {}
 
 
+def _unread(name: str, kyc: dict[str, Any], sections: set[str]) -> bool:
+    if name in SECTIONS:
+        return name not in sections
+    return name not in kyc
+
+
+def _empty_kyc(name: str, kyc: dict[str, Any]) -> bool:
+    return name not in SECTIONS and name in kyc and _empty(kyc[name])
+
+
 def check(
     answer: Any, known_ids: set[str], kyc: dict[str, Any], sections: set[str]
 ) -> TriageOutcome:
@@ -172,7 +183,10 @@ def check(
     read the profile). sections: which of activity_summary and prior_alerts it read.
 
     - every cited transaction id was shown to the reviewer;
-    - every cited KYC field was read and is not empty (citing an empty `notes` cites nothing);
+    - every cited KYC field or section was read. An empty KYC field fails when a mitigating
+      factor cites it, and on any cite when the recommendation is close. Escalate may cite an
+      empty field on a risk factor only (occupation missing). That failure would still escalate,
+      so the relaxation does not change the outcome; close stays as strict as main;
     - escalate cites at least one transaction;
     - close cites at least one transaction in a mitigating factor, and is refused when the
       reviewer itself flagged a memo that tries to instruct it: that goes to a person."""
@@ -188,12 +202,13 @@ def check(
     unknown = sorted(cited_ids(answer) - known_ids)
     if unknown:
         return failed(f"cited ids not in case: {', '.join(unknown[:5])}")
-    fields = {f for x in answer.risk_factors + answer.mitigating_factors for f in x.kyc_fields}
+    mitigating = {f for x in answer.mitigating_factors for f in x.kyc_fields}
+    cited = mitigating | {f for x in answer.risk_factors for f in x.kyc_fields}
+    close = answer.recommendation == "close"
     bad = sorted(
         f
-        for f in fields
-        if (f in SECTIONS and f not in sections)
-        or (f not in SECTIONS and (f not in kyc or _empty(kyc[f])))
+        for f in cited
+        if _unread(f, kyc, sections) or (_empty_kyc(f, kyc) and (close or f in mitigating))
     )
     if bad:
         return failed(f"cited fields not read or empty: {', '.join(bad)}")
@@ -220,6 +235,22 @@ def case_text(snapshot: dict[str, Any]) -> str:
     for key in ("flagged_transactions", "transactions"):
         snap[key] = [untrusted(t) for t in snapshot[key]]
     return json.dumps(snap, separators=(",", ":"))
+
+
+def user_evidence(snapshot: dict[str, Any]) -> str:
+    """The user message Converse receives: the short ask plus the evidence pack."""
+    return ask(snapshot) + "\nCase snapshot:\n" + case_text(snapshot)
+
+
+def prompt_evidence_sha256(snapshot: dict[str, Any]) -> str:
+    """SHA-256 of the exact system prompt and user message. The tool schema carries no case data,
+    so it is not part of the preimage. Hex only: callers log this, never the text."""
+    raw = json.dumps(
+        {"system": BASELINE_PROMPT, "user": user_evidence(snapshot)},
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def ask(snapshot: dict[str, Any]) -> str:
@@ -263,20 +294,15 @@ def call_baseline(
     started = time.monotonic()
     run = TriageRun(outcome=failed("baseline did not run"))
     answer: Any = None
-    text = case_text(snapshot)
-    if len(text) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never silently cut
+    user = user_evidence(snapshot)
+    if len(case_text(snapshot)) > EVIDENCE_PACK_MAX_CHARS:  # the pack's fixed budget; never cut
         run.outcome = failed("evidence pack over budget")
         return run, None
     try:
         response = bedrock.converse(
             modelId=model_id,
             system=[{"text": BASELINE_PROMPT}],
-            messages=[
-                {
-                    "role": "user",
-                    "content": [{"text": ask(snapshot) + "\nCase snapshot:\n" + text}],
-                }
-            ],
+            messages=[{"role": "user", "content": [{"text": user}]}],
             inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS, "temperature": 0},
             toolConfig={
                 "tools": [{"toolSpec": tool_spec()}],

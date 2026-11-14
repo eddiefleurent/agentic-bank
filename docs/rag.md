@@ -1,9 +1,10 @@
 # Policy assistant: fee and policy answers with citations (RAG)
 
-Status: **planned, not deployed.** The Terraform is written and validates, but it is off
-(`var.knowledge_base = false`) and has never been applied. The tool logic was measured in local
-mode only: the same code over an in-memory index, with real Bedrock embeddings, the real answer
-model and the deployed grounding guardrail (2026-11-12).
+Status: **implemented, on by default** (`var.knowledge_base = true` since `0c8a16d`).
+
+- **Implemented.** Terraform creates the Knowledge Base `agentic-bank-policies`, the docs bucket, the S3 Vectors index, `ask_policy` and Cedar `read_ask_policy`, unless `knowledge_base` is set false. Bootstrap in that commit lets the apply role manage the docs bucket, the vector bucket, Knowledge Bases and data sources, and pass a role to `bedrock.amazonaws.com`. The workload boundary allows `bedrock:Retrieve` plus the KB role's S3 and S3 Vectors calls. The deploy workflow starts ingestion after an apply that changes something. `scripts/rag_eval.py --kb <id>` runs this eval against that index.
+- **Locally tested** (2026-11-12). The same answer code over an in-memory index, with real Titan v2 embeddings, `openai.gpt-oss-120b-1:0` and the deployed grounding guardrail. The table below is that measurement.
+- **Not AWS-verified.** No proof script, and no `--kb` eval is committed.
 
 ## What it does
 
@@ -129,35 +130,36 @@ Local mode, 20 questions (17 answerable, 2 internal-only, 1 not in the corpus):
 
 What the numbers hide:
 
-- **False refusals come from the guardrail.** "How much does it cost to send a wire to another US
-  bank?" is refused every run: the correct answer scores relevance 0.05 because the check does not
-  link "another US bank" to "domestic".
+- **False refusals come from the relevance check.** q01 and q12 were refused in a local run that was not committed. See [Known issues](#known-issues).
 - **A cited, grounded answer can still be wrong.** For "I approved an ACH at 8 pm, when will it
   arrive?" the model said "the next business day"; the policy implies the day after. Right section,
   passed grounding. Only a correctness eval catches this.
 
 Run it: `uv run python scripts/rag_eval.py` (about $0.05) or `--retrieval-only` (under $0.01).
 
-## Turning it on (not done)
+## How deploy turns it on
 
-1. **Bootstrap (a human applies it; a draft, unverified).** The apply role needs to manage the
-   `agentic-bank-kb-docs-*` S3 bucket, the `agentic-bank-kb-*` vector bucket, Knowledge Bases and data
-   sources, and to pass roles to `bedrock.amazonaws.com`. The workload boundary needs
-   `bedrock:Retrieve` on `knowledge-base/*` (tools role) and, for the KB role, `s3:GetObject`,
-   `s3:ListBucket` on the docs bucket plus `s3vectors:GetIndex`, `QueryVectors`, `PutVectors`,
-   `GetVectors`, `DeleteVectors` on the vector bucket.
-2. Set `knowledge_base = true` for the app root and deploy.
-3. Start ingestion (`aws bedrock-agent start-ingestion-job` with the `knowledge_base_id` and
-   `knowledge_data_source_id` outputs). Re-run after any document change.
-4. **Recalibrate `MIN_SCORE`.** 0.30 is raw cosine similarity from local mode; the score Retrieve
-   reports for S3 Vectors may be on another scale. Run the eval against the KB first.
+The permissions, the default and the re-index step are in the tree. A live apply is not recorded here as AWS-verified.
+
+1. Bootstrap permissions are in `infra/bootstrap` (`0c8a16d`): the apply role may manage `agentic-bank-kb-docs-*`, `agentic-bank-kb-*`, Knowledge Bases and data sources, and pass a role to `bedrock.amazonaws.com`. The workload boundary allows `bedrock:Retrieve` on `knowledge-base/*`, and for the KB role `s3:GetObject` and `s3:ListBucket` on the docs bucket plus `s3vectors:GetIndex`, `QueryVectors`, `PutVectors`, `GetVectors` and `DeleteVectors` on the vector index.
+2. `knowledge_base` defaults to true. Set it false to leave the tool and the Knowledge Base out of an apply.
+3. Ingestion is not a Terraform resource. The deploy workflow starts it and waits when the apply had changes. By hand: `aws bedrock-agent start-ingestion-job` with the `knowledge_base_id` and `knowledge_data_source_id` outputs. Re-run after any document change.
+4. `MIN_SCORE` is still 0.30, raw cosine from local mode. Retrieve on S3 Vectors uses its own scale. Recalibrating it takes a `--kb` run, and none is committed.
 
 Expected cost: idle about $0.00/month; about $0.001 per question (query embedding, Retrieve,
 roughly 2,000 model tokens, one grounding check).
 
+## Known issues
+
+q01 and q12 are answerable questions the relevance check refused. Those refusals were observed in a local run that was not committed; no file under `evals/` records the scores. The floor is the dispute reviewer's (`RELEVANCE_MIN` 0.7, grounding 0.65). The questions and the sections they should hit use different words. Evals are frozen: either fix needs a new `uv run python scripts/rag_eval.py` (about $0.05) before a committed score can replace that observation.
+
+**q01.** "How much does it cost to send a wire to another US bank?" Expected: `fee-schedule` / "Wire transfer fees" (an outgoing domestic wire is $25.00). Refused in that uncommitted local run. The question says "another US bank"; the section says "domestic" and never "another US bank". Fix idea: say that link in the section ("a wire to another US bank is a domestic wire"). Deferred.
+
+**q12.** "I lost my debit card. How fast can I get a new one and what does it cost?" Expected: `card-replacement` / "Replacement timing and cost" (free, 7 to 10 business days; expedited $25.00 in 2 business days). Refused in that same uncommitted local run. That section says "replacement" and "expedited delivery"; it never says "lost". "Lost" and the new card number are in "Lost or stolen card", which has no price or timing. Same paraphrase gap as q01. Fix idea: restate the lost-card wording in the timing section. Deferred.
+
 ## Known limits
 
-- Not deployed: the Terraform, IAM, the KB's metadata handling and its scores are unverified on AWS.
+- Not AWS-verified: no proof covers the Knowledge Base's metadata, ingestion or Retrieve scores.
 - Audience isolation is our code, not IAM (above). Both buckets use AWS-managed encryption; a bank
   uses a customer-managed key per data class.
 - Worst case, three Bedrock calls with one retry each can exceed the tools Lambda's 30 s timeout.

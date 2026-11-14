@@ -1,7 +1,8 @@
-# Policy assistant (docs/rag.md): WRITTEN, NOT APPLIED. Off unless var.knowledge_base = true, so
-# merging this changes nothing on AWS. Turning it on first needs the bootstrap changes listed in
-# docs/rag.md (the apply role cannot yet create S3 buckets, vector buckets or Knowledge Bases, and
-# the workload boundary does not yet allow bedrock:Retrieve).
+# Policy assistant (docs/rag.md): on by default since 0c8a16d (var.knowledge_base = true).
+# That commit's bootstrap lets the apply role manage the docs bucket, the vector bucket,
+# Knowledge Bases and data sources, and pass a role to bedrock.amazonaws.com. The workload
+# boundary allows bedrock:Retrieve. Set knowledge_base false to leave this out of an apply.
+# A live apply is not recorded in docs/rag.md as AWS-verified.
 #
 #   knowledge/policies/*.md --split per "## " section--> S3 docs bucket (one object per section,
 #   plus a .metadata.json sidecar: doc_id, title, section, audience, effective_date)

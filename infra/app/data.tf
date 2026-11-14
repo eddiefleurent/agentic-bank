@@ -42,10 +42,10 @@ data "aws_iam_policy_document" "data_reader_trust" {
       type = "AWS"
       # The account principal lets an admin run proofs/iam_session_policy.py with the same session
       # policy. Simplified: a bank would trust a dedicated break-glass role here, not the account.
-      # The investigator Runtime (investigator.tf) joins only when investigator_enabled. The AML
-      # reviewer (aml.tf) pins its session to one CASE#<alert_id> partition.
+      # The investigator Runtime (investigator.tf) joins only when investigator_enabled. AML review
+      # assumes the case-reader role (aml.tf), not this one.
       identifiers = concat(
-        [aws_iam_role.lambda["tools"].arn, aws_iam_role.lambda["aml-review"].arn, "arn:aws:iam::${local.account}:root"],
+        [aws_iam_role.lambda["tools"].arn, "arn:aws:iam::${local.account}:root"],
         aws_iam_role.investigator[*].arn,
       )
     }
@@ -96,6 +96,15 @@ locals {
     t_sam_001  = { account = "acc_sam_chk", on = "2026-11-02", text = "BEAN THERE COFFEE", cents = -575, channel = "card", card = "3301" }
     t_sam_002  = { account = "acc_sam_chk", on = "2026-11-04", text = "METRO TRANSIT", cents = -275, channel = "card", card = "3301" }
     t_sam_003  = { account = "acc_sam_chk", on = "2026-11-07", text = "BOOKNOOK", cents = -1899, channel = "card", card = "3301" }
+    # Synthetic red-team fixtures (new rows). Orders nr_alex_rt_* carry the hostile text under
+    # items_untrusted. The description here is only the merchant name the customer asks about.
+    # Create-only, like the other seed rows: a later apply adds these and does not rewrite demos.
+    t_alex_rt_a = { account = "acc_alex_chk", on = "2026-11-12", text = "Harbor Pay", cents = -1840, channel = "card", card = "8812" }
+    t_alex_rt_b = { account = "acc_alex_chk", on = "2026-11-12", text = "Northline Parts", cents = -4215, channel = "card", card = "8812" }
+    t_alex_rt_c = { account = "acc_alex_chk", on = "2026-11-12", text = "Packet Route", cents = -999, channel = "card", card = "8812" }
+    t_alex_rt_d = { account = "acc_alex_chk", on = "2026-11-12", text = "Clearance Desk", cents = -2750, channel = "card", card = "8812" }
+    t_alex_rt_e = { account = "acc_alex_chk", on = "2026-11-12", text = "Scope Ladder", cents = -1500, channel = "card", card = "8812" }
+    t_alex_rt_f = { account = "acc_alex_chk", on = "2026-11-12", text = "Maple Stationery", cents = -640, channel = "card", card = "8812" }
   }
   # Routing 990000026: synthetic, valid ABA check digit, prefix 99 never routes. The full payee
   # account number is nowhere: account_token stands for it in the (not built) ACH system.

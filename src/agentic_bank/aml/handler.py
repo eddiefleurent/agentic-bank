@@ -7,8 +7,9 @@ Two Lambdas, two roles:
     check   read the case again with its own credentials -> `triage.check` on the model's answer
     record  write the checked recommendation to the analyst queue (analyst_queue = "aml")
   agentic-bank-aml-review  `review_handler`: the one-call baseline. Reads ONLY its own case,
-    through the data-reader role with a session policy pinning dynamodb:LeadingKeys to
-    CASE#<alert_id>. No write rights anywhere; its only other right is the one model.
+    through the case-reader role. That role allows GetItem and Query only on CASE#A-* partitions;
+    the session policy still pins dynamodb:LeadingKeys to CASE#<alert_id>. No write rights
+    anywhere; its only other right is the one model.
 
 v1 is human-only: nothing here closes an alert, files a report or contacts the customer. A
 `close` is advice an analyst reads; the queue row is the end of the workflow.
@@ -16,6 +17,7 @@ v1 is human-only: nothing here closes an alert, files a report or contacts the c
 
 import json
 import os
+import sys
 import uuid
 from datetime import UTC, datetime
 from functools import cache
@@ -119,7 +121,7 @@ def case_reader(alert_id: str) -> Any:
     """A DynamoDB client that can read CASE#<alert_id> and nothing else (AWS enforces it)."""
     key = snapshot.case_key(alert_id)
     session = scoped_session(
-        "DATA_READER_ROLE_ARN",
+        "CASE_READER_ROLE_ARN",
         key,
         os.environ["TABLE_ARN"],
         READ,
@@ -128,13 +130,34 @@ def case_reader(alert_id: str) -> Any:
     return session.client("dynamodb")
 
 
+def _audit_model_call(
+    alert_id: str, model_id: str, snap: dict[str, Any], run: triage.TriageRun
+) -> None:
+    """One line per model call. The hash stands in for the prompt: the evidence pack stays out."""
+    called = run.usage.get("model_calls") == 1 or (run.outcome.failure or "").startswith(
+        "baseline error"
+    )
+    if not called:  # over budget returns before Converse; there is no call to record
+        return
+    line = {
+        "event": "aml.review.audit",
+        "alert_id": alert_id,
+        "case_id": snapshot.case_key(alert_id),
+        "model_id": model_id,
+        "input_sha256": triage.prompt_evidence_sha256(snap),
+        "recommendation": run.outcome.recommendation,
+        "check": "pass" if run.outcome.failure is None else "fail",
+    }
+    print(json.dumps(line), file=sys.stderr)
+
+
 def review_handler(event: dict[str, Any], _context: Any = None) -> dict[str, Any]:
     """The Review step: read the one case, one model call, return the raw answer for `check`."""
     alert_id = event["alert_id"]
-    src = DynamoCaseSource(case_reader(alert_id), _table(), alert_id)
-    run, answer = triage.call_baseline(
-        boto3.client("bedrock-runtime"), os.environ["MODEL_ID"], src.snapshot
-    )
+    snap = DynamoCaseSource(case_reader(alert_id), _table(), alert_id).snapshot
+    model_id = os.environ["MODEL_ID"]
+    run, answer = triage.call_baseline(boto3.client("bedrock-runtime"), model_id, snap)
+    _audit_model_call(alert_id, model_id, snap, run)
     return {
         "answer": answer,
         "failure": None if answer is not None else run.outcome.failure,

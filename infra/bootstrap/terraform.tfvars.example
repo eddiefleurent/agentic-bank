@@ -8,3 +8,7 @@ region = "us-east-1"
 
 # false if the account already has the token.actions.githubusercontent.com OIDC provider
 create_oidc_provider = true
+
+# Required, no default. Monthly $25 cost budget: 80% actual and 100% forecasted.
+# Set budget_alert_email in terraform.tfvars (gitignored). Do not commit an address.
+# AWS emails that address a confirmation, which must be accepted before alerts are delivered.

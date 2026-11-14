@@ -1,11 +1,13 @@
 # AML alert triage
 
 > **Status: slices 1, 2, 2b, two rounds of the two-stage test, and slice 3 done. Slice 3 is
-> applied and AWS-verified (2026-11-13, `proofs/aml_triage.py`: all checks pass).** Data (a base and a "deep" variant), rules, the case
-> snapshot, three reviewers (one model call; a Strands agent team on the snapshot; the same team
-> exploring the whole transaction graph) and an eval harness exist. Slices 1-2 were measured locally
-> against Bedrock (model calls only, 2026-11-12). Slice 3 deploys the one-call baseline behind Step
-> Functions. Everything is synthetic and fictional.
+> applied and AWS-verified (2026-11-13, `proofs/aml_triage.py`: all checks pass) on the shared
+> data-reader role. The case-reader role is pending a human bootstrap apply, then the app apply.**
+> Data (a base and a "deep" variant), rules, the case snapshot, three reviewers (one model call; a
+> Strands agent team on the snapshot; the same team exploring the whole transaction graph) and an
+> eval harness exist. Slices 1-2 were measured locally against Bedrock (model calls only,
+> 2026-11-12). Slice 3 deploys the one-call baseline behind Step Functions. Everything is synthetic
+> and fictional.
 
 ## Slice 1: data, rules, snapshot
 
@@ -392,10 +394,37 @@ worth it depends on how often real alerts look like the deep cases, which this d
   long and that earlier history matters. The single call does not get that hint.
 - The data was regenerated after review (profile tells removed), so these numbers are not
   comparable with the first slice 2b run (commit `4d654b5`).
-- The empty-field rule applies to risk factors too; a narrower rule (only for mitigating factors)
-  would cut failures but is not what was measured.
+- The 2b runs above applied the empty-field rule to every factor. `check` now allows an empty
+  KYC field on a risk factor only when the recommendation is escalate; close still fails on any
+  empty cite. Those runs are not a measurement of that relaxation. An offline re-score of the
+  stored answers could not fill that gap: see below.
 - Model spend for this re-run: about $4.31 for the 9 runs (heuristic free), plus about $0.05 of
   smoke runs. The first slice 2b run cost about $4.45.
+
+### Empty KYC field: escalate risk factors only
+
+`check` still rejects a KYC field or section the reviewer did not read, on any factor and any
+recommendation. An empty KYC field (read, but missing) fails when a mitigating factor cites it.
+It also fails on a risk-factor cite when the recommendation is `close`, the same as on main.
+Escalate may cite an empty field on a risk factor only (occupation missing, empty notes).
+
+Close stays strict. A failure on an escalate answer still escalates, so allowing an empty field
+there only removes a false `failure`; the queue outcome does not change. A close that newly
+passed would be a real outcome change, and it cannot be measured yet.
+
+Offline re-score of `evals/aml/results/**/*.cases.jsonl` (37 files, 2,021 rows). No new model
+calls. `check` returns `failed(...)` before `advice = answer.model_dump()`, so a rejected answer
+is not saved.
+
+| Stored result | Rows | Under this rule |
+| --- | --- | --- |
+| Row `failure` is `cited fields not read or empty` | 99 (37 suspicious, 62 benign). 96 name `notes` only; 3 also or only name `activity_summary`. All 99 escalated, and all have `advice: null`. | Not re-scorable. The 3 `activity_summary` rows would still fail (an unread section fails on every factor). The other 96 would pass only if the model recommended escalate and cited the empty field on a risk factor alone. If it recommended close, this rule still fails. The answer was dropped either way. |
+| Same failure only on stage 2 (`stage2_advice` null; recorded recommendation `close`) | 18 (1 suspicious, 17 benign) | Not re-scorable. Stage 2's answer was dropped the same way, so we cannot tell whether a passing check would have changed the recorded close. |
+| Every other row | 1,904 | Unchanged. This rule only accepts some escalate answers the old check rejected. It does not fail an answer the old check accepted, and earlier failures never reached this check. |
+
+Recall on suspicious cases and escalation of benign cases therefore cannot be compared. Log
+rejected answers later without PII (cited field names, which factor, and the recommendation; not
+the narrative or KYC values) so a rule change like this can be re-scored.
 
 ## Two-stage and the blind test
 
@@ -504,9 +533,11 @@ of shallow false escalations. Spend: about $2.6 including a discarded partial ru
 
 ## Slice 3: the v1 reviewer on AWS
 
-> **Applied and AWS-verified 2026-11-13.** `proofs/aml_triage.py` passed: a suspicious alert
+> **Applied and AWS-verified 2026-11-13** on the shared data-reader role: a suspicious alert
 > escalated, a benign one queued for a person (not closed), and the reviewer got AccessDenied on
-> another case, a Scan and a write. The deploy from main then planned "No changes".
+> another case, a Scan and a write. The case-reader role in this section is in the tree and **not
+> applied yet** (bootstrap, then the app). `proofs/aml_triage.py` has the new check and has not
+> been re-run.
 
 ![One AML alert on AWS](diagrams/06-aml-triage.png)
 
@@ -537,7 +568,7 @@ fails if it drifts from the pydantic model.
 
 | Risk | Control | Enforced by |
 | --- | --- | --- |
-| The reviewer reads another customer's case (bug or injected text) | Its own role has no table rights. It assumes the data-reader role with a session policy pinning `dynamodb:LeadingKeys` to `CASE#<alert_id>` | AWS IAM (proof: another case, a Scan and a write are AccessDenied) |
+| The reviewer reads another case, or a customer row if the session policy is dropped | Its own role has no table rights. It assumes `agentic-bank-app-case-reader`, whose policy allows only `dynamodb:GetItem` and `dynamodb:Query` when `dynamodb:LeadingKeys` matches `CASE#A-*` (the prefix `open_case` writes). The session policy still pins one `CASE#<alert_id>`. A customer partition is the Cognito `sub`, so it does not match | AWS IAM (proof: another case, a Scan and a write are AccessDenied; with no session policy a customer partition is AccessDenied). Pending the bootstrap apply below |
 | The alert id widens that policy (`A-*`) | `case_key` accepts only `A-` plus 4 digits before it is used in a key or a policy | Our code |
 | The reviewer changes data | No write action in any policy it can reach | AWS IAM |
 | The AML worker touches money or customer rows | PutItem and Query only where every partition key matches `CASE#A-*`, PutItem only with the listed attributes | AWS IAM (`aml.tf`) |
@@ -554,24 +585,122 @@ fails if it drifts from the pydantic model.
 - **No analyst screen for the AML queue.** Rows wait with `analyst_queue = "aml"` (the dispute
   analyst reads `"open"`, so the queues stay apart). A bank: a case-management tool, four-eyes on
   closes, a full audit trail.
-- **The reviewer reuses the data-reader role.** The workload boundary (infra/bootstrap) lets app
-  roles assume only five named roles, so a dedicated AML case-reader role needs a bootstrap change
-  by a human admin. Today, a bug that dropped the session policy would let the reviewer read
-  customer rows. A bank would add a case-reader role whose own policy is limited to `CASE#*`, so the
-  session policy narrows a role that is already narrow.
+- **Case-reader is written, not applied.** The reviewer now assumes `agentic-bank-app-case-reader`
+  instead of the shared data-reader. The role's own policy allows only `GetItem` and `Query` on the
+  data table, and only when every `dynamodb:LeadingKeys` value matches `CASE#A-*` (the prefix
+  `open_case` writes; no Scan, no writes). The per-case session policy stays, so one review still
+  sees one alert. Dropping that session policy can read other AML case partitions (`CASE#A-*`), not
+  customer rows. A customer partition is the Cognito `sub` (the seed in `infra/app/data.tf` writes
+  `aws_cognito_user.customer.sub`). **Apply bootstrap first, then the app.** The workload boundary
+  (`infra/bootstrap`) must name `case-reader` before any app role can assume it. If the app lands
+  first, the review Lambda points at a role the boundary does not yet allow, and reviews fail closed
+  until bootstrap is applied. Do not run `proofs/aml_triage.py` until both applies have landed.
+- **Account-root trust is a known shortcut**, the same one as data-reader. The case-reader role
+  trusts the account root so an admin can assume it for the proof. A bank would trust a named
+  proof or break-glass role, not the account root.
 - **Writes one row at a time.** The boundary allows PutItem, not BatchWriteItem: about 300 calls,
   2-4 s.
-- **Logs.** Each review logs one line (tokens, stop reason, failure); the state machine has no
-  execution logging, and history keeps the model's answer under the AWS-owned key. A bank would log
-  every model call with its input hash, encrypt history with its own KMS key, and keep records for
-  5 years (BSA).
+- **Logs.** Each review still logs one operational line (tokens, stop reason, failure). It also
+  logs one audit line per model call, `event` `aml.review.audit`: alert id, case id (`CASE#A-…`),
+  model id, SHA-256 of the exact system prompt and user message, recommendation, and whether
+  `check` passed or failed. The evidence pack is not in that line. The pack is the case snapshot
+  (KYC, memos, transactions). Writing it to CloudWatch would make a second copy of that data. The
+  hash lets someone prove which input was sent, later, if they still have the case. The tool schema
+  is not part of the hash: it is frozen and holds no case data. The line goes to the reviewer
+  Lambda's log group, which keeps 30 days under the AWS-managed key, same as the other functions.
+  Step Functions execution logs go to `/aws/vendedlogs/states/agentic-bank-aml-triage`
+  (`infra/app/aml_audit.tf`), level ALL, `include_execution_data = false` (state names and errors,
+  no payload), encrypted with the customer-managed key `alias/agentic-bank-aml-logs`, kept 90 days.
+  That matches this account's CloudTrail retention: long enough to investigate a failed run. It is
+  not a five-year store. Execution history still uses the AWS-owned key and still holds each state's
+  input and output. Alarms, console only: `ExecutionsFailed`, `ExecutionsTimedOut`, and the
+  reviewer Lambda's `Errors`.
+- **BSA records, not built here.** A US bank keeps the records behind an AML decision for five
+  years (Bank Secrecy Act recordkeeping, 31 CFR 1010.430), including what supported a SAR. This
+  demo does not file SARs and does not build that archive. CloudWatch is the hot detective store.
+  A bank would export the case partition and the audit lines (hash, model id, recommendation,
+  check result) to S3 in a separate log-archive account, with Object Lock in compliance mode and a
+  five-year retention, so the account that runs the model cannot delete them.
 - **One model, on demand, us-east-1, no guardrail.** `check` is the output control here; the
   dispute grounding guardrail scores free text against a source, which this answer is not.
 
 ### Cost
 
-On demand, nothing idle. Per alert: about 15,000 input and 1,500 output gpt-oss tokens (about
-$0.003), about 300 small DynamoDB writes and a few reads (about $0.0004), four state transitions
-and about 15 s of Lambda: well under one cent. A month of proof runs (say 20 alerts) is about
-$0.10. The Lambda zip adds about 3 MB of code storage (free).
+On demand, nothing idle in the workflow itself. Per alert: about 15,000 input and 1,500 output
+gpt-oss tokens (about $0.003), about 300 small DynamoDB writes and a few reads (about $0.0004),
+four state transitions and about 15 s of Lambda: well under one cent. A month of proof runs (say
+20 alerts) is about $0.10. The Lambda zip adds about 3 MB of code storage (free). Execution-log
+ingestion at that volume is cents, and the three alarms sit inside the ten free CloudWatch alarms.
+The logs key is a second customer-managed key at $1.00/month. The PII key cannot be reused: its
+policy refuses any encrypt whose context is not `{case_id, token}`, and CloudWatch Logs uses
+`aws:logs:arn`. Account idle cost is about $2/month. A $25 monthly account budget alerts at 80%
+actual and 100% forecasted ([deploy.md](deploy.md#cost)); the address is `budget_alert_email` in
+the gitignored bootstrap tfvars.
+
+## Decision-model second opinion (demo)
+
+A local demo, not a deploy and not an eval. Bedrock has no decision models yet, so we rent one
+on OpenRouter: [Morph Reflex](https://openrouter.ai/morph/reflex) (`morph/reflex`, pinned) returns
+p(escalate) and a suspicion probability. The Bedrock baseline stays the primary recommendation.
+This does not close an alert.
+
+The payload is the case snapshot, tokenized with the same `pii.py` as disputes: names and long
+digit runs become tokens, and KYC notes, memos, and expected countries stay. p(escalate) ≥ 0.9
+is an auto-escalate band. p(escalate) ≤ 0.1 is a likely-close band that a person still reads:
+nothing here auto-closes. Anything in between is unsure. A missing key, a timeout, or a bad
+response is no opinion, with one stderr line (HTTP status or exception type). The request sends
+`provider.zdr: true`.
+
+Renting Reflex is a hosted call at $0.042 per million input tokens. Owning the model means
+training one on the bank's own cases and running it inside the bank, as Coinbase did with a
+post-trained Qwen3.5-9B fraud model. The bank then calibrates the number it branches on.
+
+### First run
+
+The first digest stripped notes and memos. Reflex escalated all 10 cases at 0.97–1.00 (cost
+$0.0004), including the benign ones, because the escalate criterion is "Nothing documented
+explains it". The payload now keeps tokenized notes and memos. The same 10 cases then ran from
+0.01 to 1.00 (OpenRouter reported $0.007219).
+
+| | before (notes stripped) | after (tokenized snapshot) |
+| --- | --- | --- |
+| p(escalate) | 0.97–1.00 on all 10 | 0.01–1.00 |
+| cost | $0.0004 | $0.007219 |
+
+```
+case            label            bedrock   p(escalate)  band                                                        agrees
+base/LABEL-003  suspicious       escalate  0.96         auto-escalate band                                          yes
+base/LABEL-005  suspicious       close     0.97         auto-escalate band                                          no
+base/LABEL-006  suspicious       close     1.00         auto-escalate band                                          no
+base/LABEL-011  suspicious       escalate  1.00         auto-escalate band                                          yes
+base/LABEL-001  benign           escalate  0.01         likely-close band (still human-reviewed, never auto-close)  no
+base/LABEL-002  benign           close     0.88         unsure → human                                              no
+base/LABEL-004  benign           close     0.05         likely-close band (still human-reviewed, never auto-close)  yes
+deep/LABEL-003  suspicious/hops  close     0.41         unsure → human                                              yes
+deep/LABEL-004  suspicious/hops  close     0.98         auto-escalate band                                          no
+deep/LABEL-007  benign/hops      escalate  0.99         auto-escalate band                                          yes
+```
+
+```bash
+uv run python proofs/aml_decision_demo.py
+uv run python proofs/aml_decision_demo.py --all --model nace-ai/drex-max-finance
+```
+
+The script prints ten rows (suspicious, benign, and deep) and the OpenRouter cost. It reads the
+stored Bedrock recommendation from `evals/aml/results`. `--with-bedrock` calls the baseline live
+and is off by default. The ten-row demo caps decision calls at 10. `--all` runs every base, deep,
+and blind-deep case through the same loop (abort above $1 reported) and writes the cascade next
+to the stored rows. `--model` selects the decision model; Reflex is the default.
+
+### 66 deep cases
+
+| | Reflex | Drex | Baseline | Graph |
+| --- | --- | --- | --- | --- |
+| Recall | 97% | 85% | 88% | 94% |
+| Deep recall | 88% | 62% | 50% | 88% |
+| Benign false escalations | 42% | 33% | 52% | 64% |
+| $ per case | $0.0008 | $0.0006 | $0.0025 | $0.0115 |
+
+Reflex put 0 suspicious cases in likely-close.
+Drex put 3 deep suspicious cases there at p≈0.03, so Reflex is the router default.
 
